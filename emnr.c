@@ -189,20 +189,22 @@ void calc_window (EMNR a)
 
 void interpM (double* res, double x, int nvals, double* xvals, double* yvals)
 {
-	if (x <= xvals[0])
-		*res = yvals[0];
-	else if (x >= xvals[nvals - 1])
-		*res = yvals[nvals - 1];
-	else
-	{
-		int idx = 0;
-		double xllow, xlhigh, frac;
-		while (x >= xvals[idx])  idx++;
-		xllow = log10 (xvals[idx - 1]);
-		xlhigh = log10(xvals[idx]);
-		frac = (log10 (x) - xllow) / (xlhigh - xllow);
-		*res = yvals[idx - 1] + frac * (yvals[idx] - yvals[idx - 1]);
-	}
+    if (x <= xvals[0])
+        *res = yvals[0];
+    else if (x >= xvals[nvals - 1])
+        *res = yvals[nvals - 1];
+    else
+    {
+        int idx = 0;
+        double xllow, xlhigh, frac;
+
+	while (x >= xvals[idx])
+            idx++;
+        xllow = log10(xvals[idx - 1]);
+        xlhigh = log10(xvals[idx]);
+        frac = (log10 (x) - xllow) / (xlhigh - xllow);
+        *res = yvals[idx - 1] + frac * (yvals[idx] - yvals[idx - 1]);
+    }
 }
 
 void calc_emnr(EMNR a)
@@ -637,6 +639,9 @@ void LambdaD(EMNR a)
 	memcpy (a->np.lambda_d, a->np.sigma2N, a->np.msize * sizeof (double));
 }
 
+// See "NOISE POWER ESTIMATION BASED ON THE PROBABILITY OF SPEECH
+// PRESENCE" by Gerkmann and Hendriks, 3rd page under the section
+// "Algorithm 1" (Estimation of Speech presence probability)
 void LambdaDs (EMNR a)
 {
 	int k;
@@ -748,22 +753,37 @@ void calc_gain (EMNR a)
 	}
 	switch (a->g.gain_method)
 	{
-	case 0:
+	case 0: // gaussian speech, linear amplitude
 		{
 			double gamma, eps_hat, v;
 			for (k = 0; k < a->msize; k++)
 			{
+                            // E&M: equation 10
 				gamma = min (a->g.lambda_y[k] / a->g.lambda_d[k], a->g.gamma_max);
+                                // E&M: equation 51 and 52 -> 53?
 				eps_hat = a->g.alpha * a->g.prev_mask[k] * a->g.prev_mask[k] * a->g.prev_gamma[k]
 					+ (1.0 - a->g.alpha) * max (gamma - 1.0, a->g.eps_floor);
+                                // E&M: equation 8
 				v = (eps_hat / (1.0 + eps_hat)) * gamma;
+                                // E&M: equation 7
 				a->g.mask[k] = a->g.gf1p5 * sqrt (v) / gamma * exp (- 0.5 * v)
 					* ((1.0 + v) * bessI0 (0.5 * v) + v * bessI1 (0.5 * v));
+                                // at this point, mask variable
+                                // contains Â_k, the estimated
+                                // amplitude of speech signal.
+
+                                // XXX No idea what is going on here
 				{
 					double v2 = min (v, 700.0);
+                                        // Equation 28?
 					double eta = a->g.mask[k] * a->g.mask[k] * a->g.lambda_y[k] / a->g.lambda_d[k];
+                                        // from Equation 29?
 					double eps = eta / (1.0 - a->g.q);
+                                        // q_k is probability of signal absence in the kth spectral component
+                                        // Defined in the same page as eq 27 in E&M at the left top.
+                                        // witchHat is greek capital lambda (Λ) defined in E&M eq 27.
 					double witchHat = (1.0 - a->g.q) / a->g.q * exp (v2) / (1.0 + eps);
+                                        // equation 30. mask[k] is the estimate of the amplitude of the speech signal
 					a->g.mask[k] *= witchHat / (1.0 + witchHat);
 				}
 				if (a->g.mask[k] > a->g.gmax) a->g.mask[k] = a->g.gmax;
@@ -773,7 +793,7 @@ void calc_gain (EMNR a)
 			}
 			break;
 		}
-	case 1:
+	case 1: // gaussian speech, log amplitude
 		{
 			double gamma, eps_hat, v, ehr;
 			for (k = 0; k < a->g.msize; k++)
@@ -790,7 +810,7 @@ void calc_gain (EMNR a)
 			}
 			break;
 		}
-	case 2:
+	case 2: // gamma speech distribution (default)
 		{
 			double gamma, eps_hat, eps_p;
 			for (k = 0; k < a->msize; k++)
@@ -806,6 +826,7 @@ void calc_gain (EMNR a)
 			break;
 		}
 	}
+        // post filter?
 	if (a->g.ae_run) aepf(a);
 }
 
@@ -827,17 +848,29 @@ void xemnr (EMNR a, int pos)
 				a->forfftin[i] = a->window[i] * a->inaccum[j];
 			a->iaoutidx = (a->iaoutidx + a->incr) % a->iasize;
 			a->nsamps -= a->incr;
+
+                        // step 1: find PSD
 			fftw_execute (a->Rfor);
-			calc_gain(a);
+
+                        // step 2: calc noise power and then calc gain (a->mask[i])
+                        // multiply each complex output value of the spectrum by gain.
+                        calc_gain(a);
+                        // output is the Â_k values (a->mask[k])
 			for (i = 0; i < a->msize; i++)
 			{
 				g1 = a->gain * a->mask[i];
 				a->revfftin[2 * i + 0] = g1 * a->forfftout[2 * i + 0];
 				a->revfftin[2 * i + 1] = g1 * a->forfftout[2 * i + 1];
 			}
+
+                        // step 3: find inverse fft (i.e. we are in time domain again)
 			fftw_execute (a->Rrev);
+
+                        // step 4: windowing after synthesis.
 			for (i = 0; i < a->fsize; i++)
 				a->save[a->saveidx][i] = a->window[i] * a->revfftout[i];
+
+                        // step 5: overlap save for next frame
 			for (i = a->ovrlp; i > 0; i--)
 			{
 				sbuff = (a->saveidx + i) % a->ovrlp;

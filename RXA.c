@@ -317,19 +317,19 @@ void create_rxa (int channel)
 	
 	// EMNR
 	rxa[channel].emnr.p = create_emnr (
-		0,												// run
-		0,												// position
-		ch[channel].dsp_size,							// buffer size
-		rxa[channel].midbuff,							// input buffer
-		rxa[channel].midbuff,							// output buffer
-		4096,											// FFT size
-		4,												// overlap
-		ch[channel].dsp_rate,							// samplerate
-		0,												// window type
-		1.0,											// gain
-		2,												// gain method
-		0,												// npe_method
-		1);												// ae_run
+		0,		            // run
+		0,			    // position
+		ch[channel].dsp_size,	    // buffer size
+		rxa[channel].midbuff,	    // input buffer
+		rxa[channel].midbuff,	    // output buffer
+		4096,			    // FFT size
+		4,			    // overlap
+		ch[channel].dsp_rate,	    // samplerate
+		0,			    // window type
+		1.0,			    // gain
+		2,			    // gain method
+		0,			    // npe_method
+		1);			    // ae_run
 
 	// AGC
 	rxa[channel].agc.p = create_wcpagc (
