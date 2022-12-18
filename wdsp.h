@@ -75,6 +75,7 @@ extern void SetRXAFMSQThreshold (int channel, double threshold);
 extern void SetRXAAMSQRun (int channel, int run);
 extern void SetRXAAMSQThreshold (int channel, double threshold);
 extern void SetRXAEMNRRun (int channel, int run);
+extern void SetRXARNNRRun (int channel, int run);
 extern void SetRXAEMNRgainMethod (int channel, int method);
 extern void SetRXAEMNRnpeMethod (int channel, int method);
 extern void SetRXAEMNRPosition (int channel, int position);

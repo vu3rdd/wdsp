@@ -59,6 +59,7 @@ dexp.c\
 div.c\
 eer.c\
 emnr.c\
+rnnr.c\
 emph.c\
 eq.c\
 fcurve.c\
@@ -121,6 +122,7 @@ dexp.h\
 div.h\
 eer.h\
 emnr.h\
+rnnr.h\
 emph.h\
 eq.h\
 fastmath.h\
@@ -183,6 +185,7 @@ dexp.o\
 div.o\
 eer.o\
 emnr.o\
+rnnr.o\
 emph.o\
 eq.o\
 fcurve.o\
