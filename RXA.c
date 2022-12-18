@@ -331,6 +331,8 @@ void create_rxa (int channel)
 		0,			    // npe_method
 		1);			    // ae_run
 
+        // RNNoise based noise reduction
+        // this needs good audio gain
 	rxa[channel].rnnr.p = create_rnnr (
             0, 	            // run
             0,	            // position
