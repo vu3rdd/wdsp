@@ -79,6 +79,14 @@ extern void SetRXARNNRRun (int channel, int run);
 extern void SetRXAEMNRgainMethod (int channel, int method);
 extern void SetRXAEMNRnpeMethod (int channel, int method);
 extern void SetRXAEMNRPosition (int channel, int position);
+
+extern void SetRXASBNRRun (int channel, int run);
+extern void SetRXASBNRreductionAmount (int channel, float amount);
+extern void SetRXASBNRsmoothingFactor (int channel, float factor);
+extern void SetRXASBNRwhiteningFactor (int channel, float factor);
+extern void SetRXASBNRnoiseRescale (int channel, float factor);
+extern void SetRXASBNRpostFilterThreshold (int channel, float threshold);
+
 extern void SetRXAANFRun(int channel, int run);
 extern double GetRXAMeter (int channel, int mt);
 extern void SetRXAPanelBinaural(int channel, int bin);

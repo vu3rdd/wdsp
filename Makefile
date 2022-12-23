@@ -60,6 +60,7 @@ div.c\
 eer.c\
 emnr.c\
 rnnr.c\
+sbnr.c\
 emph.c\
 eq.c\
 fcurve.c\
@@ -123,6 +124,7 @@ div.h\
 eer.h\
 emnr.h\
 rnnr.h\
+sbnr.h\
 emph.h\
 eq.h\
 fastmath.h\
@@ -186,6 +188,7 @@ div.o\
 eer.o\
 emnr.o\
 rnnr.o\
+sbnr.o\
 emph.o\
 eq.o\
 fcurve.o\
