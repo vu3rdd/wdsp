@@ -1095,7 +1095,7 @@ void PSSaveCorr (int channel, char* filename)
 	int i = 0;
 	EnterCriticalSection (&txa[channel].calcc.cs_update);
 	a = txa[channel].calcc.p;
-	while (a->util.savefile[i++] = *filename++);
+	while ((a->util.savefile[i++] = *filename++));
 	_beginthread(SaveCorrection, 0, (void *)a);
 	LeaveCriticalSection (&txa[channel].calcc.cs_update);
 }
@@ -1107,7 +1107,7 @@ void PSRestoreCorr (int channel, char* filename)
 	int i = 0;
 	EnterCriticalSection (&txa[channel].calcc.cs_update);
 	a = txa[channel].calcc.p;
-	while (a->util.restfile[i++] = *filename++);
+	while ((a->util.restfile[i++] = *filename++));
 	a->ctrl.turnon = 1;
 	_beginthread(RestoreCorrection, 0, (void *)a);
 	LeaveCriticalSection (&txa[channel].calcc.cs_update);

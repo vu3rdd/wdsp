@@ -275,7 +275,7 @@ void calc_emnr(EMNR a)
 	//
 	a->g.GG = (double *)malloc0(241 * 241 * sizeof(double));
 	a->g.GGS = (double *)malloc0(241 * 241 * sizeof(double));
-	if (a->g.fileb = fopen("calculus", "rb"))
+	if ((a->g.fileb = fopen("calculus", "rb")))
 	{
 		fread(a->g.GG, sizeof(double), 241 * 241, a->g.fileb);
 		fread(a->g.GGS, sizeof(double), 241 * 241, a->g.fileb);
