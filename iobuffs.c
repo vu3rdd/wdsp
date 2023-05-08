@@ -466,7 +466,7 @@ void fexchange0 (int channel, double* in, double* out, int* error)
 			upslew0 (a, in);
 		else
 			memcpy (a->r1_baseptr + 2 * a->r1_inidx, in, a->in_size * sizeof (complex));
-																											// add check with *error += -1; for case when r1 is full and an overwrite occurs
+		// add check with *error += -1; for case when r1 is full and an overwrite occurs
 		if ((a->r1_unqueuedsamps += a->in_size) >= a->r1_outsize)
 		{
 			n = a->r1_unqueuedsamps / a->r1_outsize;

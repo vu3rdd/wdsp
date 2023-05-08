@@ -60,7 +60,6 @@ john.d.melton@googlemail.com
 #define __cdecl
 #define __stdcall
 #define __forceinline
-#define _beginthread wdsp_beginthread
 #define _aligned_malloc(x,y) malloc(x);
 #define _aligned_free(x) free(x);
 #define freopen_s freopen
@@ -68,7 +67,7 @@ john.d.melton@googlemail.com
 #define max(x,y) (x<y?y:x)
 #define THREAD_PRIORITY_HIGHEST 0
 
-#define Sleep(ms) usleep(ms*1000)
+#define Sleep(ms) usleep((ms)*1000)
 
 #define CreateSemaphore(a,b,c,d) LinuxCreateSemaphore(a,b,c,d)
 #define WaitForSingleObject(x, y) LinuxWaitForSingleObject(x, y)
@@ -98,13 +97,13 @@ sem_t *CreateEvent(void* security_attributes,int bManualReset,int bInitialState,
 
 void LinuxSetEvent(sem_t* sem);
 
-HANDLE wdsp_beginthread( void( __cdecl *start_address )( void * ), unsigned stack_size, void *arglist);
+HANDLE _beginthread( void( __cdecl *start_address )( void * ), unsigned stack_size, void *arglist);
 
 void _endthread();
 
 void SetThreadPriority(HANDLE thread, int priority);
 
-int CloseHandle(HANDLE hObject);
+void CloseHandle(HANDLE hObject);
 
 #endif
 

@@ -25,6 +25,8 @@ john.d.melton@googlemail.com
 
 */
 
+#include <errno.h>
+
 #include "linux_port.h"
 #include "comm.h"
 
@@ -93,21 +95,36 @@ int LinuxWaitForSingleObject(sem_t *sem,int ms) {
 sem_t *LinuxCreateSemaphore(int attributes,int initial_count,int maximum_count,char *name) {
         sem_t *sem;
 #ifdef __APPLE__
-        //DL1YCF
-	//This routine is invoked with name=NULL several times, so we have to make
-	//a unique name of tpye WDSPxxxxx for each invocation.
-	static int semcount=0;
-	char sname[12];
-        sprintf(sname,"WDSP%05d",semcount++);
-	sem_unlink(sname);
-        sem=sem_open(sname, O_CREAT | O_EXCL, 0700, initial_count);
+        //
+        // DL1YCF
+	// This routine is usually invoked with name=NULL, so we have to make
+	// a unique name of tpye WDSPxxxxxxxx for each invocation, since MacOS only
+        // supports named semaphores. We shall unlink in due course, but first we
+        // need to check whether the name is possibly already in use, e.g. by
+        // another SDR program running on the same machine.
+        //
+	static long semcount=0;
+	char sname[20];
+        for (;;) {
+          sprintf(sname,"WDSP%08ld",semcount++);
+          sem=sem_open(sname, O_CREAT | O_EXCL, 0700, initial_count);
+          if (sem == SEM_FAILED && errno == EEXIST) continue;
+          break;
+        }
 	if (sem == SEM_FAILED) {
 	  perror("WDSP:CreateSemaphore");
 	}
+        //
+        // we can unlink the semaphore NOW. It will remain functional
+        // until sem_close() has been called by all threads using that
+        // semaphore.
+        //
+	sem_unlink(sname);
 #else
         sem=malloc(sizeof(sem_t));
 	int result;
-	result=sem_init(sem, 0, 0);
+        // DL1YCF: added correct initial count
+	result=sem_init(sem, 0, initial_count);
         if (result < 0) {
 	  perror("WDSP:CreateSemaphore");
         }
@@ -116,6 +133,11 @@ sem_t *LinuxCreateSemaphore(int attributes,int initial_count,int maximum_count,c
 }
 
 void LinuxReleaseSemaphore(sem_t* sem,int release_count, int* previous_count) {
+	//
+	// Note WDSP always calls this with previous_count==NULL
+        // so we do not bother about obtaining the previous value and 
+        // storing it in *previous_count.
+        //
 	while(release_count>0) {
 		sem_post(sem);
 		release_count--;
@@ -123,9 +145,11 @@ void LinuxReleaseSemaphore(sem_t* sem,int release_count, int* previous_count) {
 }
 
 sem_t *CreateEvent(void* security_attributes,int bManualReset,int bInitialState,char* name) {
+	//
+	// From within WDSP, this is always called with bManualReset = bInitialState = FALSE
+	//
         sem_t *sem;
 	sem=LinuxCreateSemaphore(0,0,0,0);
-	// need to handle bManualReset and bInitialState
 	return sem;
 }
 
@@ -133,7 +157,7 @@ void LinuxSetEvent(sem_t* sem) {
 	sem_post(sem);
 }
 
-HANDLE wdsp_beginthread( void( __cdecl *start_address )( void * ), unsigned stack_size, void *arglist) {
+HANDLE _beginthread( void( __cdecl *start_address )( void * ), unsigned stack_size, void *arglist) {
 	pthread_t threadid;
 	pthread_attr_t  attr;
 
@@ -168,11 +192,15 @@ HANDLE wdsp_beginthread( void( __cdecl *start_address )( void * ), unsigned stac
 }
 
 void _endthread() {
-	int res;
-	pthread_exit((void *)&res);
+	pthread_exit(NULL);
 }
 
 void SetThreadPriority(HANDLE thread, int priority)  {
+//
+// In Linux, the scheduling priority only affects
+// real-time threads (SCHED_FIFO, SCHED_RR), so this
+// is basically a no-op here.
+//
 /*
 	int policy;
 	struct sched_param param;
@@ -183,30 +211,21 @@ void SetThreadPriority(HANDLE thread, int priority)  {
 */
 }
 
-int CloseHandle(HANDLE hObject) {
+void CloseHandle(HANDLE hObject) {
 //
 // This routine is *ONLY* called to release semaphores
+// The WDSP transmitter thread terminates upon each TX/RX
+// transition, where it closes and re-opens a semaphore
+// in flush_buffs() in iobuffs.c. Therefore, we have to
+// release any resource associated with this semaphore, which
+// may be a small memory patch (LINUX) or a file descriptor
+// (MacOS).
 //
 #ifdef __APPLE__
-//
-// A semaphore is closed and re-allocated on each RX->TX transition.
-// After about 200 RX/TX transitions, MacOS runs out of file descriptors
-// since MacOS only has named semaphores. As a consequence,
-// no new semaphores can be allocated, and other parts of the program cannot
-// open new files ore make new connections.
-// Therefore we should close the semaphore.
-//
 if (sem_close((sem_t *)hObject) < 0) {
   perror("WDSP:CloseHandle:SemCLose");
 }
 #else
-//
-// Although the number of semaphores seems "unlimited" on RapianOS,
-// this is nevertheless a memory leak (a sem_t is allocated before
-// sem_init is called, see above).
-// So destroy the semaphore and (if this was successful) release the memory.
-//
-
 if (sem_destroy((sem_t *)hObject) < 0) {
   perror("WDSP:CloseHandle:SemDestroy");
 } else {
@@ -215,8 +234,7 @@ if (sem_destroy((sem_t *)hObject) < 0) {
 }
 #endif
 
-// this is actually a void function (return value never used).
-return 0;
+return;
 }
 
 #endif
