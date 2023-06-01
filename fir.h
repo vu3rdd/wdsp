@@ -39,4 +39,3 @@ extern double *fir_read (int N, const char *filename, int rtype, double scale);
 extern void mp_imp (int N, double* fir, double* mpfir, int pfactor, int polarity);
 
 extern double* zff_impulse(int nc, double scale);
-

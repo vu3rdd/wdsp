@@ -20,10 +20,10 @@ GTKOPTIONS=-D GTK
 endif
 
 ifeq ($(UNAME_S), Darwin)
-OPTIONS=-g -O3 -D _GNU_SOURCE 		# MacOS: do not need PIC
-LIBS=`pkg-config --libs fftw3`  	# MacOS: get FFTW library path from pkg-config
-PROGRAM=libwdsp.dylib			# MacOS: shared libs end in .dylib
-JAVA_PROGRAM=libwdspj.dylib		# MacOS: shared libs end in .dylib
+OPTIONS=-g -O3 -D _GNU_SOURCE `pkg-config --cflags fftw3`
+LIBS=`pkg-config --libs fftw3`
+PROGRAM=libwdsp.dylib
+JAVA_PROGRAM=libwdspj.dylib
 NOEXECSTACK=				# MacOS: Compiler does not have -z option
 else
 OPTIONS=-g -fPIC -O3 -D _GNU_SOURCE	# Linux: legacy compiler options for WDSP

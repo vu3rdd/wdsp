@@ -1363,4 +1363,3 @@ void setSize_dsphp(SPHP a, int size)
 	a->size = size;
 	flush_dsphp(a);
 }
-
