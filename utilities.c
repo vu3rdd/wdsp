@@ -344,7 +344,7 @@ void WriteAudioWDSP (double seconds, int rate, int size, double* indata, int mod
 	const double conv = 2147483647.0 * gain;
 	if (!ready)
 	{
-		if (mode < 3)
+		if (mode != 3)
 			n = (int)(seconds * rate);
 		else
 			n = 2 * (int)(seconds * rate);
@@ -370,6 +370,9 @@ void WriteAudioWDSP (double seconds, int rate, int size, double* indata, int mod
 				data[audiocount++] = (int)(conv * indata[2 * i + 0]);
 				data[audiocount++] = (int)(conv * indata[2 * i + 1]);
 				break;
+            case 4: // double samples (mono)
+                data[audiocount++] = (int)(conv * indata[i]);
+                break;
 			}
 		}
 	}

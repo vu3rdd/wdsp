@@ -75,6 +75,20 @@ enum txaMeterType {
 #define RESAMPLE void*
 #define GAIN     void*
 
+//
+// Some #defines that make pretend an extended-noise-reduction capability
+// These functions are defined in some locally modified WDSP libraries
+// and implement, together with some external libraries, additional
+// noise reduction procedures.            
+// 
+#define SetRXARNNRRun(a,b)                 
+#define SetRXASBNRRun(a,b)                 
+#define SetRXASBNRreductionAmount(a,b)
+#define SetRXASBNRsmoothingFactor(a,b)
+#define SetRXASBNRwhiteningFactor(a,b)
+#define SetRXASBNRpostFilterThreshold(a,b)
+#define SetRXASBNRnoiseRescale(a,b)
+
 ////////////////////////////////////////////
 //                                        //
 // All what follows is machine-generated. //
@@ -459,6 +473,8 @@ extern void SetRXAFMNCde (int channel, int nc);
 extern void SetRXAFMMPde (int channel, int mp);
 extern void SetRXAFMNCaud (int channel, int nc);
 extern void SetRXAFMMPaud (int channel, int mp);
+extern void SetRXAFMLimRun (int channel, int run);
+extern void SetRXAFMLimGain (int channel, double gaindB);
 
 //
 // Interfaces from fmmod.c
@@ -815,6 +831,15 @@ extern void RXABPSNBASetNC (int channel, int nc);
 extern void RXABPSNBASetMP (int channel, int mp);
 
 //
+// Interfaces from ssql.c
+//
+
+extern void SetRXASSQLRun (int channel, int run);
+extern void SetRXASSQLThreshold (int channel, double threshold);
+extern void SetRXASSQLTauMute (int channel, double tau_mute);
+extern void SetRXASSQLTauUnMute (int channel, double tau_unmute);
+
+//
 // Interfaces from utilities.c
 //
 
@@ -874,6 +899,3 @@ extern  void SetTXALevelerTop (int channel, double maxgain);
 
 extern char* wisdom_get_status();
 extern void WDSPwisdom (char* directory);
-#ifdef __cplusplus
-}
-#endif

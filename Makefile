@@ -97,6 +97,7 @@ shift.c\
 siphon.c\
 slew.c\
 snb.c\
+ssql.c \
 syncbuffs.c\
 TXA.c\
 utilities.c\
@@ -161,6 +162,7 @@ shift.h\
 siphon.h\
 slew.h\
 snb.h\
+ssql.h \
 syncbuffs.h\
 TXA.h\
 utilities.h\
@@ -220,6 +222,7 @@ shift.o\
 siphon.o\
 slew.o\
 snb.o\
+ssql.o \
 syncbuffs.o\
 TXA.o\
 utilities.o\
