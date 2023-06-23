@@ -59,7 +59,10 @@ void wdspmain (void *pargs)
 		}
 		LeaveCriticalSection (&ch[channel].csDSP);
 	}
-	_endthread();
+#if defined(_WIN32)
+        if (hTask != 0) AvRevertMmThreadCharacteristics (hTask);
+#endif
+
 }
 
 void create_main (int channel)
