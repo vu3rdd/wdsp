@@ -23,6 +23,14 @@ endif
 FFTWLIB=`pkg-config --libs fftw3`
 FFTWINCLUDE=`pkg-config --cflags fftw3`
 
+ifneq ($(NEW_NR_ALGORITHMS),)
+NRINCLUDES=`pkg-config --cflags rnnoise`
+NRINCLUDES+=`pkg-config --cflags specbleech`
+
+NRLIBS=`pkg-config --libs rnnoise`
+NRLIBS+=`pkg-config --libs specbleech`
+endif
+
 ifeq ($(UNAME_S), Darwin)
 OPTIONS=-g -O3 -D _GNU_SOURCE
 PROGRAM=libwdsp.dylib
@@ -48,7 +56,7 @@ else
 INCLUDES=-I $(JAVA_HOME)/include -I $(JAVA_HOME)/include/linux
 endif
 
-COMPILE=$(CC) $(INCLUDES) $(GTKINCLUDES) $(FFTWINCLUDE)
+COMPILE=$(CC) $(INCLUDES) $(GTKINCLUDES) $(FFTWINCLUDE) $(NRINCLUDES)
 
 SOURCES= amd.c\
 ammod.c\
@@ -70,8 +78,6 @@ dexp.c\
 div.c\
 eer.c\
 emnr.c\
-rnnr.c\
-sbnr.c\
 emph.c\
 eq.c\
 fcurve.c\
@@ -113,6 +119,11 @@ version.c\
 wcpAGC.c\
 wisdom.c
 
+ifneq ($(NEW_NR_ALGORITHMS),)
+SOURCES+= rnnr.c\
+sbnr.c
+endif
+
 JAVA_SOURCES= org_openhpsdr_dsp_Wdsp.c
 
 HEADERS=amd.h\
@@ -135,8 +146,6 @@ dexp.h\
 div.h\
 eer.h\
 emnr.h\
-rnnr.h\
-sbnr.h\
 emph.h\
 eq.h\
 fastmath.h\
@@ -177,6 +186,11 @@ TXA.h\
 utilities.h\
 wcpAGC.h
 
+ifneq ($(NEW_NR_ALGORITHMS),)
+HEADERS+= rnnr.h\
+sbnr.h
+endif
+
 JAVA_HEADERS= org_openhpsdr_dsp_Wdsp.h
 
 OBJS=linux_port.o\
@@ -200,8 +214,6 @@ dexp.o\
 div.o\
 eer.o\
 emnr.o\
-rnnr.o\
-sbnr.o\
 emph.o\
 eq.o\
 fcurve.o\
@@ -242,6 +254,11 @@ varsamp.o\
 wcpAGC.o\
 wisdom.o
 
+ifneq ($(NEW_NR_ALGORITHMS),)
+rnnr.o\
+sbnr.o
+endif
+
 JAVA_OBJS= org_openhpsdr_dsp_Wdsp.o
 
 all: $(PROGRAM) $(HEADERS) $(SOURCES)
@@ -249,7 +266,7 @@ all: $(PROGRAM) $(HEADERS) $(SOURCES)
 java: $(JAVA_PROGRAM) $(JAVA_HEADERS) $(JAVA_SOURCES)
 
 $(PROGRAM): $(OBJS)
-	$(LINK) -shared $(NOEXECSTACK) $(LDFLAGS) -o $(PROGRAM) $(OBJS) $(LIBS) $(GTKLIBS)
+	$(LINK) -shared $(NOEXECSTACK) $(LDFLAGS) -o $(PROGRAM) $(OBJS) $(LIBS) $(GTKLIBS) $(NRLIBS)
 
 $(JAVA_PROGRAM): $(JAVA_OBJS)
 	$(LINK) -shared $(NOEXECSTACK) $(LDFLAGS) -o $(JAVA_PROGRAM) $(JAVA_OBJS) $(JAVA_LIBS)
