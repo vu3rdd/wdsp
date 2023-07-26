@@ -14,7 +14,7 @@ CC+=-pthread
 LINK?=$(CC)
 
 #GTK_INCLUDE=GTK
-ifeq ($GTK_INCLUDE),GTK)
+ifeq ($(GTK_INCLUDE)),GTK)
 GTKINCLUDES=`pkg-config --cflags gtk+-3.0`
 GTKLIBS=`pkg-config --libs gtk+-3.0`
 GTKOPTIONS=-D GTK
