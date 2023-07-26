@@ -266,7 +266,7 @@ void __cdecl CalccPrintSamples (void *pargs)
 {
 	int i;
 	double env_tx, env_rx;
-	int channel = (int)pargs;
+	int channel = (int)(uintptr_t)pargs;
 	CALCC a = txa[channel].calcc.p;
 	FILE* file = fopen("samples.txt", "w");
 	fprintf (file, "\n");
@@ -285,7 +285,7 @@ void __cdecl CalccPrintSamples (void *pargs)
 
 void doCalccPrintSamples(int channel)
 {	// no sample buffering - use in single cal mode
-	_beginthread(CalccPrintSamples, 0, (void *)channel);
+	_beginthread(CalccPrintSamples, 0, (void *)(uintptr_t)channel);
 }
 
 void print_anb_parms (const char* filename, ANB a)
@@ -303,7 +303,6 @@ void print_anb_parms (const char* filename, ANB a)
 }
 
 #if !defined(linux) && !defined(__APPLE__)
-
 // Audacity:  Import Raw Data, Signed 32-bit PCM, Little-endian, Mono/Stereo per mode selection, 48K rate
 
 int audiocount = 0;
@@ -345,7 +344,7 @@ void WriteAudioWDSP (double seconds, int rate, int size, double* indata, int mod
 	const double conv = 2147483647.0 * gain;
 	if (!ready)
 	{
-		if (mode < 3)
+		if (mode != 3)
 			n = (int)(seconds * rate);
 		else
 			n = 2 * (int)(seconds * rate);
@@ -371,6 +370,9 @@ void WriteAudioWDSP (double seconds, int rate, int size, double* indata, int mod
 				data[audiocount++] = (int)(conv * indata[2 * i + 0]);
 				data[audiocount++] = (int)(conv * indata[2 * i + 1]);
 				break;
+            case 4: // double samples (mono)
+                data[audiocount++] = (int)(conv * indata[i]);
+                break;
 			}
 		}
 	}

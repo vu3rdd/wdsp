@@ -2,7 +2,7 @@
 
 This file is part of a program that implements a Software-Defined Radio.
 
-Copyright (C) 2013, 2014, 2015, 2016 Warren Pratt, NR0V
+Copyright (C) 2013, 2014, 2015, 2016, 2023 Warren Pratt, NR0V
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -92,7 +92,7 @@ void create_rxa (int channel)
 		0,												// run the notches
 		0,												// position
 		ch[channel].dsp_size,							// buffer size
-		2048,											// number of coefficients
+		max(2048, ch[channel].dsp_size),				// number of coefficients
 		0,												// minimum phase flag
 		rxa[channel].midbuff,							// pointer to input buffer
 		rxa[channel].midbuff,							// pointer to output buffer
@@ -111,7 +111,7 @@ void create_rxa (int channel)
 		0,												// run the notches
 		0,												// position
 		ch[channel].dsp_size,							// size
-		2048,											// number of filter coefficients
+		max(2048, ch[channel].dsp_size),				// number of filter coefficients
 		0,												// minimum phase flag
 		rxa[channel].midbuff,							// input buffer
 		rxa[channel].midbuff,							// output buffer
@@ -206,9 +206,9 @@ void create_rxa (int channel)
 		0.5,											// audio gain
 		1,												// run tone filter
 		254.1,											// ctcss frequency
-		2048,											// # coefs for de-emphasis filter
+		max(2048, ch[channel].dsp_size),				// # coefs for de-emphasis filter
 		0,												// min phase flag for de-emphasis filter
-		2048,											// # coefs for audio cutoff filter
+		max(2048, ch[channel].dsp_size),				// # coefs for audio cutoff filter
 		0);												// min phase flag for audio cutoff filter
 
 	// FM squelch
@@ -230,7 +230,7 @@ void create_rxa (int channel)
 		0.562,											// noise level to initiate unmute
 		0.000,											// minimum tail time
 		1.200,											// maximum tail time
-		2048,											// number of coefficients for noise filter
+		max(2048, ch[channel].dsp_size),				// number of coefficients for noise filter
 		0);												// minimum phase flag
 
 	// snba
@@ -262,7 +262,7 @@ void create_rxa (int channel)
 	rxa[channel].eqp.p = create_eqp (
 		0,												// run - OFF by default
 		ch[channel].dsp_size,							// buffer size
-		2048,											// number of filter coefficients
+		max(2048, ch[channel].dsp_size),				// number of filter coefficients
 		0,												// minimum phase flag
 		rxa[channel].midbuff,							// pointer to input buffer
 		rxa[channel].midbuff,							// pointer to output buffer
@@ -393,7 +393,7 @@ void create_rxa (int channel)
 		1,												// run - used only with ( AM || ANF || ANR || EMNR)
 		0,												// position
 		ch[channel].dsp_size,							// buffer size
-		2048,											// number of coefficients
+		max(2048, ch[channel].dsp_size),				// number of coefficients
 		0,												// flag for minimum phase
 		rxa[channel].midbuff,							// pointer to input buffer
 		rxa[channel].midbuff,							// pointer to output buffer
@@ -458,6 +458,23 @@ void create_rxa (int channel)
 			4 );										// number of stages
 	}
 
+	// syllabic squelch
+	rxa[channel].ssql.p = create_ssql(
+		0,												// run
+		ch[channel].dsp_size,							// size
+		rxa[channel].midbuff,							// pointer to input buffer
+		rxa[channel].midbuff,							// pointer to output buffer
+		ch[channel].dsp_rate,							// sample rate
+		0.070,											// signal up transition time
+		0.070,											// signal down transition time
+		0.0,											// muted gain
+		0.1,											// mute time-constant
+		0.1,											// unmute time-constant
+		0.08,											// window threshold
+		0.8197,											// trigger threshold
+		2400,											// ring size for f_to_v converter
+		2000.0);										// max freq for f_to_v converter									
+
 	// patchpanel
 	rxa[channel].panel.p = create_panel (
 		channel,										// channel number
@@ -491,6 +508,7 @@ void destroy_rxa (int channel)
 {
 	destroy_resample (rxa[channel].rsmpout.p);
 	destroy_panel (rxa[channel].panel.p);
+	destroy_ssql (rxa[channel].ssql.p);
 	destroy_mpeak (rxa[channel].mpeak.p);
 	destroy_speak (rxa[channel].speak.p);
 	destroy_cbl (rxa[channel].cbl.p);
@@ -552,6 +570,7 @@ void flush_rxa (int channel)
 	flush_cbl (rxa[channel].cbl.p);
 	flush_speak (rxa[channel].speak.p);
 	flush_mpeak (rxa[channel].mpeak.p);
+	flush_ssql (rxa[channel].ssql.p);
 	flush_panel (rxa[channel].panel.p);
 	flush_resample (rxa[channel].rsmpout.p);
 }
@@ -593,6 +612,7 @@ void xrxa (int channel)
 	xcbl (rxa[channel].cbl.p);
 	xspeak (rxa[channel].speak.p);
 	xmpeak (rxa[channel].mpeak.p);
+	xssql (rxa[channel].ssql.p);
 	xpanel (rxa[channel].panel.p);
 	xamsq (rxa[channel].amsq.p);
 	xresample (rxa[channel].rsmpout.p);
@@ -663,6 +683,7 @@ void setDSPSamplerate_rxa (int channel)
 	setSamplerate_cbl (rxa[channel].cbl.p, ch[channel].dsp_rate);
 	setSamplerate_speak (rxa[channel].speak.p, ch[channel].dsp_rate);
 	setSamplerate_mpeak (rxa[channel].mpeak.p, ch[channel].dsp_rate);
+	setSamplerate_ssql (rxa[channel].ssql.p, ch[channel].dsp_rate);
 	setSamplerate_panel (rxa[channel].panel.p, ch[channel].dsp_rate);
 	// output resampler
 	setBuffers_resample (rxa[channel].rsmpout.p, rxa[channel].midbuff, rxa[channel].outbuff);
@@ -732,6 +753,8 @@ void setDSPBuffsize_rxa (int channel)
 	setSize_speak (rxa[channel].speak.p, ch[channel].dsp_size);
 	setBuffers_mpeak (rxa[channel].mpeak.p, rxa[channel].midbuff, rxa[channel].midbuff);
 	setSize_mpeak (rxa[channel].mpeak.p, ch[channel].dsp_size);
+	setBuffers_ssql (rxa[channel].ssql.p, rxa[channel].midbuff, rxa[channel].midbuff);
+	setSize_ssql (rxa[channel].ssql.p, ch[channel].dsp_size);
 	setBuffers_panel (rxa[channel].panel.p, rxa[channel].midbuff, rxa[channel].midbuff);
 	setSize_panel (rxa[channel].panel.p, ch[channel].dsp_size);
 	// output resampler
@@ -944,9 +967,9 @@ void RXASetNC (int channel, int nc)
 	RXANBPSetNC					(channel, nc);
 	RXABPSNBASetNC				(channel, nc);
 	SetRXABandpassNC			(channel, nc);
-	// SetRXAEQNC					(channel, nc);
-	// SetRXAFMSQNC					(channel, nc);
-	// SetRXAFMNCde					(channel, nc);
+	SetRXAEQNC					(channel, nc);
+	SetRXAFMSQNC				(channel, nc);
+	SetRXAFMNCde				(channel, nc);
 	SetRXAFMNCaud				(channel, nc);
 	SetChannelState (channel, oldstate, 0);
 }

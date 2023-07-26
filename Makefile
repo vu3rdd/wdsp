@@ -9,8 +9,9 @@ PREFIX?=/usr/local
 LIBDIR=$(PREFIX)/lib
 INCLUDEDIR=$(PREFIX)/include
 
-CC?=gcc					# this will always be set upon entry
-LINK?=$(CC)				# if unset upon entry, use $(CC)
+CC?=gcc
+CC+=-pthread
+LINK?=$(CC)
 
 #GTK_INCLUDE=GTK
 ifeq ($GTK_INCLUDE),GTK)
@@ -19,25 +20,35 @@ GTKLIBS=`pkg-config --libs gtk+-3.0`
 GTKOPTIONS=-D GTK
 endif
 
+FFTWLIB=`pkg-config --libs fftw3`
+FFTWINCLUDE=`pkg-config --cflags fftw3`
+
 ifeq ($(UNAME_S), Darwin)
-OPTIONS=-g -O3 -D _GNU_SOURCE   	# MacOS: do not need PIC
-LIBS=`pkg-config --libs fftw3`  	# MacOS: get FFTW library path from pkg-config
-PROGRAM=libwdsp.dylib			# MacOS: shared libs end in .dylib
-JAVA_PROGRAM=libwdspj.dylib		# MacOS: shared libs end in .dylib
-NOEXECSTACK=				# MacOS: Compiler does not have -z option
+OPTIONS=-g -O3 -D _GNU_SOURCE
+PROGRAM=libwdsp.dylib
+JAVA_PROGRAM=libwdspj.dylib
+NOEXECSTACK=				     # MacOS: Compiler does not have -z option
+                                             #        since the NX bit is "on" by default
 else
-OPTIONS=-g -fPIC -O3 -D _GNU_SOURCE	# Linux: legacy compiler options for WDSP
-LIBS=-lfftw3 -lpthread			# Linux: assume FFTW3 lib is found this way
-PROGRAM=libwdsp.so			# Linux: shared libs end in .so
-JAVA_PROGRAM=libwdspj.so		# Linux: shared libs end in .so
-NOEXECSTACK=	-z noexecstack		# Linux: link option for gcc
+OPTIONS=-g -fPIC -O3 -D _GNU_SOURCE
+PROGRAM=libwdsp.so
+JAVA_PROGRAM=libwdspj.so
+NOEXECSTACK=-z noexecstack
 endif
+
+LIBS=$(FFTWLIB)
 
 JAVA_LIBS=-L. -lwdsp
 
+ifeq ($(JAVA_HOME),)
+#
+# If $JAVA_HOME is empty, do not search /include
+#
+else
 INCLUDES=-I $(JAVA_HOME)/include -I $(JAVA_HOME)/include/linux
+endif
 
-COMPILE=$(CC) $(INCLUDES) $(GTKINCLUDES)
+COMPILE=$(CC) $(INCLUDES) $(GTKINCLUDES) $(FFTWINCLUDE)
 
 SOURCES= amd.c\
 ammod.c\
@@ -93,6 +104,7 @@ shift.c\
 siphon.c\
 slew.c\
 snb.c\
+ssql.c \
 syncbuffs.c\
 TXA.c\
 utilities.c\
@@ -159,6 +171,7 @@ shift.h\
 siphon.h\
 slew.h\
 snb.h\
+ssql.h \
 syncbuffs.h\
 TXA.h\
 utilities.h\
@@ -220,6 +233,7 @@ shift.o\
 siphon.o\
 slew.o\
 snb.o\
+ssql.o \
 syncbuffs.o\
 TXA.o\
 utilities.o\

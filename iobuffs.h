@@ -27,7 +27,7 @@ warren@wpratt.com
 #ifndef _iobuffs_h
 #define _iobuffs_h
 #include "comm.h"
-typedef struct _iob
+typedef struct _iobf
 {
 	int   channel;
 	int   in_size;								// input number of complex samples in a fexchange call
@@ -55,6 +55,8 @@ typedef struct _iob
 	HANDLE Sem_OutReady;						// count = number of 'out_size' buffers processed and available for output
 	HANDLE Sem_BuffReady;						// count = number of 'dsp_size' buffers queued for processing
 	volatile long exec_bypass;
+        volatile long flush_bypass;
+	HANDLE Sem_Flush;
 	struct
 	{
 		int ustate;

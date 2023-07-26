@@ -27,16 +27,22 @@ warren@wpratt.com
 #define _CRT_SECURE_NO_WARNINGS
 #include "comm.h"
 
-#if defined(linux) || defined(__APPLE__)
 static char status[128];
-#endif
+
+PORT
+char* wisdom_get_status()
+{
+	return status;
+}
 
 PORT
 void WDSPwisdom (char* directory)
 {
 	fftw_plan tplan;
 	int psize;
+#ifdef _WIN32
 	FILE *stream;
+#endif
 	double* fftin;
 	double* fftout;
 	char wisdom_file[1024];
@@ -47,21 +53,16 @@ void WDSPwisdom (char* directory)
 	{
 		fftin =  (double *) malloc0 (maxsize * sizeof (complex));
 		fftout = (double *) malloc0 (maxsize * sizeof (complex));
-#ifdef _WINDOWS_
-                AllocConsole();                                                         // create console
-            freopen_s(&stream, "conout$", "w", stdout); // redirect output to console
-                fprintf(stdout, "Optimizing FFT sizes through %d\n\n", maxsize);
-                fprintf(stdout, "Please do not close this window until wisdom plans are completed.\n\n");
+#ifdef _WIN32
+		AllocConsole();								// create console
+	    freopen_s(&stream, "conout$", "w", stdout); // redirect output to console
 #endif
+		fprintf(stdout, "Optimizing FFT sizes through %d\n\n", maxsize);
+		fprintf(stdout, "Please do not close this window until wisdom plans are completed.\n\n");
+		sprintf(status, "Optimizing FFT sizes through %d", maxsize);
 #ifdef __ANDROID__
-                sprintf(status, "Optimizing FFT sizes through %d", maxsize);
-                utf8 = (*env)->NewStringUTF(env,status);
-                (*env)->CallVoidMethod(env, obj, update, utf8);
-#endif
-#if defined(linux) || defined(__APPLE__)
-                fprintf(stdout, "Optimizing FFT sizes through %d\n\n", maxsize);
-                fprintf(stdout, "Please do not close this window until wisdom plans are completed.\n\n");
-                sprintf(status, "Optimizing FFT sizes through %d", maxsize);
+		utf8 = (*env)->NewStringUTF(env,status);
+		(*env)->CallVoidMethod(env, obj, update, utf8);
 #endif
 
 		psize = 64;
@@ -69,25 +70,19 @@ void WDSPwisdom (char* directory)
 		{
 			fprintf(stdout, "Planning COMPLEX FORWARD  FFT size %d\n", psize);
 			fflush(stdout);
-#if defined(linux) || defined(__APPLE__)
 			sprintf(status, "Planning COMPLEX FORWARD  FFT size %d\n", psize);
-#endif
 			tplan = fftw_plan_dft_1d(psize, (fftw_complex *)fftin, (fftw_complex *)fftout, FFTW_FORWARD, FFTW_PATIENT);
 			fftw_execute (tplan);
 			fftw_destroy_plan (tplan);
 			fprintf(stdout, "Planning COMPLEX BACKWARD FFT size %d\n", psize);
 			fflush(stdout);
-#if defined(linux) || defined(__APPLE__)
-			sprintf(status, "Planning COMPLEX BACKWARD  FFT size %d\n", psize);
-#endif
+			sprintf(status, "Planning COMPLEX BACKWARD FFT size %d\n", psize);
 			tplan = fftw_plan_dft_1d(psize, (fftw_complex *)fftin, (fftw_complex *)fftout, FFTW_BACKWARD, FFTW_PATIENT);
 			fftw_execute (tplan);
 			fftw_destroy_plan (tplan);
 			fprintf(stdout, "Planning COMPLEX BACKWARD FFT size %d\n", psize + 1);
 			fflush(stdout);
-#if defined(linux) || defined(__APPLE__)
-			sprintf(status, "Planning COMPLEX BACKWARD  FFT size %d\n", psize + 1);
-#endif
+			sprintf(status, "Planning COMPLEX BACKWARD FFT size %d\n", psize + 1);
 			tplan = fftw_plan_dft_1d(psize + 1, (fftw_complex *)fftin, (fftw_complex *)fftout, FFTW_BACKWARD, FFTW_PATIENT);
 			fftw_execute (tplan);
 			fftw_destroy_plan (tplan);
@@ -100,18 +95,14 @@ void WDSPwisdom (char* directory)
 			{
 				fprintf(stdout, "Planning COMPLEX FORWARD  FFT size %d\n", psize);
 				fflush(stdout);
-#if defined(linux) || defined(__APPLE__)
 				sprintf(status, "Planning COMPLEX FORWARD  FFT size %d\n", psize);
-#endif
 				tplan = fftw_plan_dft_1d(psize, (fftw_complex *)fftin, (fftw_complex *)fftout, FFTW_FORWARD, FFTW_PATIENT);
 				fftw_execute (tplan);
 				fftw_destroy_plan (tplan);
 			}
 			fprintf(stdout, "Planning REAL    FORWARD  FFT size %d\n", psize);
 			fflush(stdout);
-#if defined(linux) || defined(__APPLE__)
 			sprintf(status, "Planning REAL    FORWARD  FFT size %d\n", psize);
-#endif
 			tplan = fftw_plan_dft_r2c_1d(psize, fftin, (fftw_complex *)fftout, FFTW_PATIENT);
 			fftw_execute (tplan);
 			fftw_destroy_plan (tplan);
@@ -119,17 +110,12 @@ void WDSPwisdom (char* directory)
 		}
 		fprintf(stdout, "\nFFTW planning complete.\n");
 		fflush(stdout);
+		sprintf(status, "\nFFTW planning complete.\n");
 		fftw_export_wisdom_to_filename(wisdom_file);
 		_aligned_free (fftout);
 		_aligned_free (fftin);
-#ifdef _WINDOWS_
+#ifdef _WIN32
 		FreeConsole();							// dismiss console
 #endif
 	}
 }
-
-#if defined(linux) || defined(__APPLE__)
-char *wisdom_get_status() {
-	return status;
-}
-#endif

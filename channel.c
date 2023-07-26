@@ -30,12 +30,7 @@ struct _ch ch[MAX_CHANNELS];
 
 void start_thread (int channel)
 {
-#if defined(linux) || defined(__APPLE__)
-	HANDLE handle = (HANDLE) _beginthread(wdspmain, 0, (void *)channel);
-#else
-	HANDLE handle = (HANDLE) _beginthread(main, 0, (void *)channel);
-#endif
-
+	HANDLE handle = (HANDLE) _beginthread(wdspmain, 0, (void *)(uintptr_t)channel);
 	//SetThreadPriority(handle, THREAD_PRIORITY_HIGHEST);
 }
 
@@ -103,7 +98,7 @@ void OpenChannel (int channel, int in_size, int dsp_size, int input_samplerate, 
 		InterlockedBitTestAndSet (&ch[channel].exchange, 0);
 	}
 #if !defined(linux) && !defined(__APPLE__)
-        _MM_SET_FLUSH_ZERO_MODE (_MM_FLUSH_ZERO_ON);
+	_MM_SET_FLUSH_ZERO_MODE (_MM_FLUSH_ZERO_ON);
 #endif
 }
 
@@ -134,16 +129,24 @@ void CloseChannel (int channel)
 
 void flushChannel (void* p)
 {
-	int channel = (int)p;
-	EnterCriticalSection (&ch[channel].csDSP);
-	EnterCriticalSection (&ch[channel].csEXCH);
-	flush_iobuffs (channel);
-	InterlockedBitTestAndSet (&ch[channel].iob.pc->exec_bypass, 0);
-	flush_main (channel);
-	LeaveCriticalSection (&ch[channel].csEXCH);
-	LeaveCriticalSection (&ch[channel].csDSP);
-	InterlockedBitTestAndReset (&ch[channel].flushflag, 0);
-	_endthread();
+	int channel = (int)(uintptr_t)p;
+        IOB a = ch[channel].iob.pc;
+        while (!InterlockedAnd(&a->flush_bypass, 0xffffffff))
+        {
+                WaitForSingleObject(a->Sem_Flush, INFINITE);
+                if (!InterlockedAnd(&a->flush_bypass, 0xffffffff))
+                {
+                        EnterCriticalSection(&ch[channel].csDSP);
+                        EnterCriticalSection(&ch[channel].csEXCH);
+                        flush_iobuffs(channel);
+                        InterlockedBitTestAndSet(&a->exec_bypass, 0);
+                        flush_main(channel);
+                        LeaveCriticalSection(&ch[channel].csEXCH);
+                        LeaveCriticalSection(&ch[channel].csDSP);
+                        InterlockedBitTestAndReset(&ch[channel].flushflag, 0);
+                }
+        }
+        InterlockedBitTestAndReset(&a->flush_bypass, 0);
 }
 
 /********************************************************************************************************
