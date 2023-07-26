@@ -25,10 +25,10 @@ FFTWINCLUDE=`pkg-config --cflags fftw3`
 
 ifneq ($(NEW_NR_ALGORITHMS),)
 NRINCLUDES=`pkg-config --cflags rnnoise`
-NRINCLUDES+=`pkg-config --cflags specbleech`
+NRINCLUDES+=`pkg-config --cflags libspecbleach`
 
 NRLIBS=`pkg-config --libs rnnoise`
-NRLIBS+=`pkg-config --libs specbleech`
+NRLIBS+=`pkg-config --libs libspecbleach`
 endif
 
 ifeq ($(UNAME_S), Darwin)
@@ -255,7 +255,7 @@ wcpAGC.o\
 wisdom.o
 
 ifneq ($(NEW_NR_ALGORITHMS),)
-rnnr.o\
+OBJS+=rnnr.o\
 sbnr.o
 endif
 
