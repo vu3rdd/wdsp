@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-The author can be reached by email at  
+The author can be reached by email at
 
 warren@wpratt.com
 
@@ -314,7 +314,6 @@ void create_rxa (int channel)
 		1.0,											// lincr
 		3.0);											// ldecr
 
-	
 	// EMNR
 	rxa[channel].emnr.p = create_emnr (
 		0,		            // run
@@ -331,6 +330,7 @@ void create_rxa (int channel)
 		0,			    // npe_method
 		1);			    // ae_run
 
+#ifdef NEW_NR_ALGORITHMS
         // RNNoise based noise reduction
         // this needs good audio gain
 	rxa[channel].rnnr.p = create_rnnr (
@@ -345,7 +345,7 @@ void create_rxa (int channel)
             0,	            // position
             rxa[channel].midbuff,
             rxa[channel].midbuff);
-
+#endif
 	// AGC
 	rxa[channel].agc.p = create_wcpagc (
 		1,												// run
@@ -517,8 +517,10 @@ void destroy_rxa (int channel)
 	destroy_meter (rxa[channel].agcmeter.p);
 	destroy_wcpagc (rxa[channel].agc.p);
 	destroy_emnr (rxa[channel].emnr.p);
+#ifdef NEW_NR_ALGORITHMS
         destroy_rnnr (rxa[channel].rnnr.p);
         destroy_sbnr (rxa[channel].sbnr.p);
+#endif
 	destroy_anr (rxa[channel].anr.p);
 	destroy_anf (rxa[channel].anf.p);
 	destroy_eqp (rxa[channel].eqp.p);
@@ -597,15 +599,19 @@ void xrxa (int channel)
 	xanf (rxa[channel].anf.p, 0);
 	xanr (rxa[channel].anr.p, 0);
 	xemnr (rxa[channel].emnr.p, 0);
+#ifdef NEW_NR_ALGORITHMS
         xrnnr (rxa[channel].rnnr.p, 0);
         xsbnr (rxa[channel].sbnr.p, 0);
+#endif
 	xbandpass (rxa[channel].bp1.p, 0);
 	xwcpagc (rxa[channel].agc.p);
 	xanf (rxa[channel].anf.p, 1);
 	xanr (rxa[channel].anr.p, 1);
 	xemnr (rxa[channel].emnr.p, 1);
+#ifdef NEW_NR_ALGORITHMS
         xrnnr (rxa[channel].rnnr.p, 1);
         xsbnr (rxa[channel].sbnr.p, 1);
+#endif
 	xbandpass (rxa[channel].bp1.p, 1);
 	xmeter (rxa[channel].agcmeter.p);
 	xsiphon (rxa[channel].sip1.p, 0);
@@ -736,8 +742,10 @@ void setDSPBuffsize_rxa (int channel)
 	setBuffers_anr (rxa[channel].anr.p, rxa[channel].midbuff, rxa[channel].midbuff);
 	setSize_anr (rxa[channel].anr.p, ch[channel].dsp_size);
 	setBuffers_emnr (rxa[channel].emnr.p, rxa[channel].midbuff, rxa[channel].midbuff);
+#ifdef NEW_NR_ALGORITHMS
         setBuffers_rnnr (rxa[channel].rnnr.p, rxa[channel].midbuff, rxa[channel].midbuff);
         setBuffers_sbnr (rxa[channel].sbnr.p, rxa[channel].midbuff, rxa[channel].midbuff);
+#endif
 	setSize_emnr (rxa[channel].emnr.p, ch[channel].dsp_size);
 	setBuffers_bandpass (rxa[channel].bp1.p, rxa[channel].midbuff, rxa[channel].midbuff);
 	setSize_bandpass (rxa[channel].bp1.p, ch[channel].dsp_size);
@@ -775,9 +783,15 @@ void SetRXAMode (int channel, int mode)
 	{
 		int amd_run = (mode == RXA_AM) || (mode == RXA_SAM);
 		RXAbpsnbaCheck (channel, mode, rxa[channel].ndb.p->master_run);
-		RXAbp1Check (channel, amd_run, rxa[channel].snba.p->run, rxa[channel].emnr.p->run, 
+#ifdef NEW_NR_ALGORITHMS
+		RXAbp1Check (channel, amd_run, rxa[channel].snba.p->run, rxa[channel].emnr.p->run,
                              rxa[channel].anf.p->run, rxa[channel].anr.p->run,
                              rxa[channel].rnnr.p->run, rxa[channel].sbnr.p->run);
+#else
+		RXAbp1Check (channel, amd_run, rxa[channel].snba.p->run, rxa[channel].emnr.p->run,
+                             rxa[channel].anf.p->run, rxa[channel].anr.p->run,
+                             0, 0);
+#endif
 		EnterCriticalSection (&ch[channel].csDSP);
 		rxa[channel].mode = mode;
 		rxa[channel].amd.p->run  = 0;
@@ -794,7 +808,6 @@ void SetRXAMode (int channel, int mode)
 			rxa[channel].amd.p->mode = 1;
 			break;
 		case RXA_DSB:
-		
 			break;
 		case RXA_FM:
 			rxa[channel].fmd.p->run  = 1;
@@ -811,7 +824,7 @@ void SetRXAMode (int channel, int mode)
 }
 
 void RXAResCheck (int channel)
-{	
+{
 	// turn OFF/ON resamplers depending upon whether they're needed
 	RESAMPLE a = rxa[channel].rsmpin.p;
 	if (ch[channel].in_rate  != ch[channel].dsp_rate)	a->run = 1;
@@ -821,7 +834,7 @@ void RXAResCheck (int channel)
 	else												a->run = 0;
 }
 
-void RXAbp1Check (int channel, int amd_run, int snba_run, 
+void RXAbp1Check (int channel, int amd_run, int snba_run,
                   int emnr_run, int anf_run, int anr_run,
                   int rnnr_run, int sbnr_run)
 {
@@ -846,8 +859,10 @@ void RXAbp1Set (int channel)
 	if ((rxa[channel].amd.p->run  == 1) ||
 		(rxa[channel].snba.p->run == 1) ||
 		(rxa[channel].emnr.p->run == 1) ||
+#ifdef NEW_NR_ALGORITHMS
                 (rxa[channel].rnnr.p->run == 1) ||
                 (rxa[channel].sbnr.p->run == 1) ||
+#endif
                 (rxa[channel].anf.p->run  == 1) ||
 		(rxa[channel].anr.p->run  == 1))	a->run = 1;
 	else						a->run = 0;
@@ -892,14 +907,13 @@ void RXAbpsnbaCheck (int channel, int mode, int notch_run)
 			break;
 		case RXA_DRM:
 		case RXA_SPEC:
-		
 			break;
 	}
 	// 'run' and 'position' are examined at run time; no filter changes required.
 	// Recalculate filter if frequencies OR 'run_notches' changed.
 	if ((a->f_low       != f_low      ) ||
 		(a->f_high      != f_high     ) ||
-		(a->run_notches != run_notches))	
+		(a->run_notches != run_notches))
 	{
 		a->f_low  = f_low;
 		a->f_high = f_high;
