@@ -29,6 +29,8 @@ NRINCLUDES+=`pkg-config --cflags libspecbleach`
 
 NRLIBS=`pkg-config --libs rnnoise`
 NRLIBS+=`pkg-config --libs libspecbleach`
+
+CFLAGS+=-DNEW_NR_ALGORITHMS
 endif
 
 ifeq ($(UNAME_S), Darwin)
