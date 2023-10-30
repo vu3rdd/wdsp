@@ -75,18 +75,6 @@ enum txaMeterType {
 #define RESAMPLE void*
 #define GAIN     void*
 
-//
-// Some #defines that pretend an extended-noise-reduction capability
-// These functions are defined in some locally modified WDSP libraries
-// and implement, together with some external libraries, additional
-// noise reduction procedures.            
-// These #defines are included here for the sole purpose of debugging
-// the GUI of an SDR program which makes use of these functions.
-// Of course, a program using these functions will compile and link,
-// but there is no actual function.
-//
-#ifdef NEW_NR_ALGORITHMS
-
 extern void SetRXARNNRRun (int channel, int run);
 extern void SetRXASBNRRun (int channel, int run);
 extern void SetRXASBNRreductionAmount (int channel, float amount);
@@ -94,18 +82,6 @@ extern void SetRXASBNRsmoothingFactor (int channel, float factor);
 extern void SetRXASBNRwhiteningFactor (int channel, float factor);
 extern void SetRXASBNRnoiseRescale (int channel, float factor);
 extern void SetRXASBNRpostFilterThreshold (int channel, float threshold);
-
-#else
-
-#define SetRXARNNRRun(a,b)                 
-#define SetRXASBNRRun(a,b)                 
-#define SetRXASBNRreductionAmount(a,b)
-#define SetRXASBNRsmoothingFactor(a,b)
-#define SetRXASBNRwhiteningFactor(a,b)
-#define SetRXASBNRpostFilterThreshold(a,b)
-#define SetRXASBNRnoiseRescale(a,b)
-
-#endif
 
 ///////////////////////////////////////////////////////////
 //                                                       //
