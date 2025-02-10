@@ -2,7 +2,7 @@
 
 This file is part of a program that implements a Software-Defined Radio.
 
-Copyright (C) 2014, 2016 Warren Pratt, NR0V
+Copyright (C) 2014, 2016, 2023 Warren Pratt, NR0V
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -136,6 +136,24 @@ void SetTXAFMEmphNC (int channel, int nc)
 		a->nc = nc;
 		impulse = fc_impulse (a->nc, a->f_low, a->f_high, -20.0 * log10(a->f_high / a->f_low), 0.0, a->ctype, a->rate, 1.0 / (2.0 * a->size), 0, 0);
 		setNc_fircore (a->p, a->nc, impulse);
+        _aligned_free (impulse);
+    }
+    LeaveCriticalSection (&ch[channel].csDSP);
+}
+
+PORT
+void SetTXAFMPreEmphFreqs (int channel, double low, double high)
+{
+    EMPHP a;
+    double* impulse;
+    EnterCriticalSection (&ch[channel].csDSP);
+    a = txa[channel].preemph.p;
+    if (a->f_low != low || a->f_high != high)
+    {
+        a->f_low = low;
+        a->f_high = high;
+        impulse = fc_impulse (a->nc, a->f_low, a->f_high, -20.0 * log10(a->f_high / a->f_low), 0.0, a->ctype, a->rate, 1.0 / (2.0 * a->size), 0, 0);
+        setImpulse_fircore (a->p, impulse, 1);
 		_aligned_free (impulse);
 	}
 	LeaveCriticalSection (&ch[channel].csDSP);

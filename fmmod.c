@@ -2,7 +2,7 @@
 
 This file is part of a program that implements a Software-Defined Radio.
 
-Copyright (C) 2013, 2016 Warren Pratt, NR0V
+Copyright (C) 2013, 2016, 2023 Warren Pratt, NR0V
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -210,4 +210,23 @@ void SetTXAFMMP (int channel, int mp)
 		a->mp = mp;
 		setMp_fircore (a->p, a->mp);
 	}
+}
+
+PORT
+void SetTXAFMAFFreqs (int channel, double low, double high)
+{
+    FMMOD a;
+    double* impulse;
+    EnterCriticalSection(&ch[channel].csDSP);
+    a = txa[channel].fmmod.p;
+    if (a->f_low != low || a->f_high != high)
+    {
+        a->f_low = low;
+        a->f_high = high;
+        a->bp_fc = a->deviation + a->f_high;
+        impulse = fir_bandpass (a->nc, -a->bp_fc, +a->bp_fc, a->samplerate, 0, 1, 1.0 / (2 * a->size));
+        setImpulse_fircore (a->p, impulse, 1);
+        _aligned_free (impulse);
+    }
+    LeaveCriticalSection(&ch[channel].csDSP);
 }

@@ -2,7 +2,7 @@
 
 This file is part of a program that implements a Software-Defined Radio.
 
-Copyright (C) 2014, 2022 Warren Pratt, NR0V
+Copyright (C) 2014, 2022, 2023 Warren Pratt, NR0V
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -166,6 +166,7 @@ extern void setSize_mpeak (MPEAK a, int size);
 
 typedef struct _phrot
 {
+    int reverse;
 	int run;
 	int size;
 	double* in;

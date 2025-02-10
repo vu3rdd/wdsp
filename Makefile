@@ -73,7 +73,6 @@ cblock.c\
 cfcomp.c\
 cfir.c\
 channel.c\
-comm.c\
 compress.c\
 delay.c\
 dexp.c\
@@ -119,14 +118,13 @@ utilities.c\
 varsamp.c\
 version.c\
 wcpAGC.c\
-wisdom.c
+wisdom.c \
+zetahat.c
 
 ifneq ($(NEW_NR_ALGORITHMS),)
 SOURCES+= rnnr.c\
 sbnr.c
 endif
-
-JAVA_SOURCES= org_openhpsdr_dsp_Wdsp.c
 
 HEADERS=amd.h\
 ammod.h\
@@ -186,7 +184,8 @@ ssql.h \
 syncbuffs.h\
 TXA.h\
 utilities.h\
-wcpAGC.h
+wcpAGC.h \
+zetahat.h
 
 ifneq ($(NEW_NR_ALGORITHMS),)
 HEADERS+= rnnr.h\
@@ -209,7 +208,6 @@ cblock.o\
 cfcomp.o\
 cfir.o\
 channel.o\
-comm.o\
 compress.o\
 delay.o\
 dexp.o\
@@ -254,7 +252,8 @@ utilities.o\
 version.o\
 varsamp.o\
 wcpAGC.o\
-wisdom.o
+wisdom.o \
+zetahat.o
 
 ifneq ($(NEW_NR_ALGORITHMS),)
 OBJS+=rnnr.o\

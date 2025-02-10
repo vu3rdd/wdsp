@@ -158,6 +158,7 @@ CALCC create_calcc (int channel, int runcal, int size, int rate, int ints, int s
 	a->ctrl.running = 0;
 	a->ctrl.current_state = 0;
 	InitializeCriticalSectionAndSpinCount (&txa[a->channel].calcc.cs_update, 2500);
+        InitializeCriticalSectionAndSpinCount (&a->ctrl.cs_SafeToEnd, 2500);
 	a->rxdelay = create_delay (
 		1,											// run
 		0,											// size				[stuff later]
@@ -204,6 +205,8 @@ CALCC create_calcc (int channel, int runcal, int size, int rate, int ints, int s
 void destroy_calcc (CALCC a)
 {
 	// correction save and restore threads
+        InterlockedBitTestAndReset(&txa[a->channel].iqc.p1->busy, 0);
+        Sleep(10);
 	InterlockedBitTestAndSet(&a->savecorr_bypass, 0);
 	ReleaseSemaphore(a->Sem_SaveCorr, 1, 0);
 	while (InterlockedAnd(&a->savecorr_bypass, 0xffffffff)) Sleep(1);
@@ -227,6 +230,7 @@ void destroy_calcc (CALCC a)
 	DeleteCriticalSection (&a->disp.cs_disp);
 	destroy_delay (a->txdelay);
 	destroy_delay (a->rxdelay);
+    DeleteCriticalSection (&a->ctrl.cs_SafeToEnd);
 	DeleteCriticalSection (&txa[a->channel].calcc.cs_update);
 	_aligned_free (a->binfo);
 	_aligned_free (a->info);
@@ -489,10 +493,12 @@ void __cdecl doPSCalcCorrection (void *arg)
 			calc(a);
 			if (a->scOK)
 			{
-				if (!InterlockedBitTestAndSet(&a->ctrl.running, 0))
-					SetTXAiqcStart(a->channel, a->cm, a->cc, a->cs);
-				else
-					SetTXAiqcSwap(a->channel, a->cm, a->cc, a->cs);
+                            EnterCriticalSection (&a->ctrl.cs_SafeToEnd);
+			    if (!InterlockedBitTestAndSet(&a->ctrl.running, 0))
+				SetTXAiqcStart(a->channel, a->cm, a->cc, a->cs);
+			    else
+				SetTXAiqcSwap(a->channel, a->cm, a->cc, a->cs);
+                            LeaveCriticalSection(&a->ctrl.cs_SafeToEnd);
 			}
 			InterlockedBitTestAndSet(&a->ctrl.calcdone, 0);
 		}
@@ -508,7 +514,9 @@ void __cdecl doPSTurnoff (void *arg)
 		WaitForSingleObject(a->Sem_TurnOff, INFINITE);
 		if (!InterlockedAnd(&a->turnoff_bypass, 0xffffffff))
 		{
-			SetTXAiqcEnd(a->channel);
+                    EnterCriticalSection(&a->ctrl.cs_SafeToEnd);
+		    SetTXAiqcEnd(a->channel);
+                    LeaveCriticalSection(&a->ctrl.cs_SafeToEnd);
 		}
 	}
 	InterlockedBitTestAndReset(&a->turnoff_bypass, 0);
@@ -844,7 +852,7 @@ void PSSaveCorr (int channel, char* filename)
 	int i = 0;
 	EnterCriticalSection (&txa[channel].calcc.cs_update);
 	a = txa[channel].calcc.p;
-	while ((a->util.savefile[i++] = *filename++));
+        while (a->util.savefile[i++] = *filename++);
 	ReleaseSemaphore(a->Sem_SaveCorr, 1, 0);
 	LeaveCriticalSection (&txa[channel].calcc.cs_update);
 }
@@ -856,7 +864,7 @@ void PSRestoreCorr (int channel, char* filename)
 	int i = 0;
 	EnterCriticalSection (&txa[channel].calcc.cs_update);
 	a = txa[channel].calcc.p;
-	while ((a->util.restfile[i++] = *filename++));
+        while (a->util.restfile[i++] = *filename++);
 	a->ctrl.turnon = 1;
 	ReleaseSemaphore(a->Sem_RestCorr, 1, 0);
 	LeaveCriticalSection (&txa[channel].calcc.cs_update);

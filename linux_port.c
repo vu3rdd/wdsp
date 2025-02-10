@@ -76,16 +76,10 @@ int LinuxWaitForSingleObject(sem_t *sem,int ms) {
 		// wait for the lock
 		result=sem_wait(sem);
 	} else {
-		// try to get the lock
+        for (int i = 0; i < ms; i++) {
 		result=sem_trywait(sem);
-		if(result!=0) {
-			// didn't get the lock
-			if(ms!=0) {
-				// sleep if ms not zero
-				Sleep(ms);
-				// try to get the lock again
-				result=sem_trywait(sem);
-			}
+          if (result == 0) break;
+          Sleep(1);
 		}
 	}
 	
@@ -121,7 +115,7 @@ sem_t *LinuxCreateSemaphore(int attributes,int initial_count,int maximum_count,c
         //
 	sem_unlink(sname);
 #else
-        sem=malloc(sizeof(sem_t));
+    sem=malloc0(sizeof(sem_t));
 	int result;
         // DL1YCF: added correct initial count
 	result=sem_init(sem, 0, initial_count);
@@ -146,7 +140,7 @@ void LinuxReleaseSemaphore(sem_t* sem,int release_count, int* previous_count) {
 
 sem_t *CreateEvent(void* security_attributes,int bManualReset,int bInitialState,char* name) {
 	//
-	// From within WDSP, this is always called with bManualReset = bInitialState = FALSE
+    // This is always called with bManualReset = bInitialState = FALSE
 	//
         sem_t *sem;
 	sem=LinuxCreateSemaphore(0,0,0,0);
@@ -154,7 +148,20 @@ sem_t *CreateEvent(void* security_attributes,int bManualReset,int bInitialState,
 }
 
 void LinuxSetEvent(sem_t* sem) {
+    //
+    // WDSP uses this to set the semaphore (event) to
+    // a "releasing" state.
+    // we simulate this by posting
 	sem_post(sem);
+}
+
+void LinuxResetEvent(sem_t* sem) {
+    //
+    // WDSP uses this to set the semaphore (event) to
+    // a blocking state.
+    // We mimic this by calling sem_trywait as long as it succeeds
+    //
+    while (sem_trywait(sem) == 0) ;
 }
 
 HANDLE _beginthread( void( __cdecl *start_address )( void * ), unsigned stack_size, void *arglist) {
@@ -230,11 +237,171 @@ if (sem_destroy((sem_t *)hObject) < 0) {
   perror("WDSP:CloseHandle:SemDestroy");
 } else {
   // if sem_destroy failed, do not release storage
-  free(hObject);
+  _aligned_free(hObject);
 }
 #endif
 
 return;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+// MALLOC debug facility.
+// In the header file (linux_port.h), one can #define
+//
+//  _aligned_malloc(a,b) ==>  my_malloc(a)
+//  _aligned_free(a)     ==>  my_free(a)
+//
+// Then all memory allocations/deallocations will be done via my_malloc() my_free()
+// Note this is thread-safe, since an explicit mutex is used.
+//
+// my_alloc will build a "fence", 1k wide, to both sides of the allocated area,
+// and fill it with some bit pattern.
+//
+// my_free will check for the integrity of the "fence" and report how many bytes
+// in the upper and lower fence have illegally been changed
+//
+// furthermore, my_free will complain (and terminate the program) if its argument
+// does not point to an active memory block allocated with my_malloc.
+//
+// P.S.1: Using "valgrind" with such time-critical programs is not a good idea,
+//        so here is a solution.
+//
+// P.S.2: Further extensions are possible, e.g. include __FUNCTION__ and __LINE__
+//        in the argument list of my_malloc(), store this in MEM_LIST, and report
+//        upon failure.
+//
+// P.S.3: The standard definitions in linux_port.h are
+//
+//        __aligned_malloc(a,b) ==>   malloc(a)
+//        __aligned_free(a)     ==>   free(a)
+//
+//        and with these, "MALLOC debug" code is not used.
+//
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static pthread_mutex_t malloc_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+struct _MEM_LIST {
+  void *baseptr;
+  void *freeptr;
+  size_t size;
+  int in_use;
+};
+
+typedef struct _MEM_LIST MEM_LIST;
+
+#define MEM_LIST_SIZE 32768
+
+MEM_LIST malloc_slot[MEM_LIST_SIZE] = {0};
+
+void *my_malloc(size_t size) {
+  int slot;
+  void *baseptr, *freeptr;;
+  uint8_t *p1, *p2;
+
+  pthread_mutex_lock(&malloc_mutex);
+  //
+  // locate a free slot
+  //
+  slot=-1;
+  for (int i=0; i<MEM_LIST_SIZE; i++) {
+    if (malloc_slot[i].in_use == 0) {
+      slot=i;
+      break;
+    }
+  }
+  if (slot < 0) {
+    fprintf(stderr,"my_malloc: All Slots Exhausted.\n");
+    fflush(stderr);
+    pthread_mutex_unlock(&malloc_mutex);
+    _exit(8);
+  }
+  baseptr=malloc(size+2048);
+  if (baseptr == NULL) { return NULL; }
+
+  freeptr=baseptr+1024;
+
+  malloc_slot[slot].in_use = 1;
+  malloc_slot[slot].baseptr = baseptr;
+  malloc_slot[slot].freeptr = freeptr;
+  malloc_slot[slot].size    = size;
+
+  //
+  // Create a "fence" around the allocated area
+  //
+  p1 = baseptr;
+  p2 = freeptr + size;
+
+  for (int i=0; i<256; i++) {
+    *p1++ = 0xAA;
+    *p1++ = 0x55;
+    *p1++ = 0xEF;
+    *p1++ = 0xFE;
+    *p2++ = 0xAA;
+    *p2++ = 0x55;
+    *p2++ = 0xEF;
+    *p2++ = 0xFE;
+  }
+  pthread_mutex_unlock(&malloc_mutex);
+  //fprintf(stderr,"my_malloc: Allocated Block slot=%d addr=%p\n", slot, freeptr);
+  return freeptr;
+}
+
+void my_free(void *ptr) {
+  int slot;
+  uint8_t *p1, *p2;
+
+  pthread_mutex_lock(&malloc_mutex);
+  //
+  // Search for block
+  //
+  slot=-1;
+  for (int i=0; i<4096; i++) {
+    if (malloc_slot[i].in_use == 1 && malloc_slot[i].freeptr == ptr) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot < 0) {
+    fprintf(stderr,"my_free: Trying to free non-allocated block at addr=%p\n",ptr);
+    fflush(stderr);
+    pthread_mutex_unlock(&malloc_mutex);
+    _exit(8);
+  }
+  //
+  // Verify integrity of fence
+  //
+  int under_count=0;
+  int over_count=0;
+
+  p1 = malloc_slot[slot].baseptr;
+  p2 = malloc_slot[slot].freeptr+malloc_slot[slot].size;
+
+  for (int i=0; i<256; i++) {
+    if (*p1++ != 0xAA) under_count++;
+    if (*p1++ != 0x55) under_count++;
+    if (*p1++ != 0xEF) under_count++;
+    if (*p1++ != 0xFE) under_count++;
+    if (*p2++ != 0xAA) over_count++;
+    if (*p2++ != 0x55) over_count++;
+    if (*p2++ != 0xEF) over_count++;
+    if (*p2++ != 0xFE) over_count++;
+  }
+  if (under_count > 0) {
+    fprintf(stderr,"WARNING: my_free: Fence underrun =%d\n", under_count);
+  }
+  if (over_count > 0) {
+    fprintf(stderr,"WARNING: my_free: Fence overrun =%d\n", over_count);
+  }
+  if (over_count > 0 || under_count > 0) {
+    fprintf(stderr,"WARNING: my_free: Block slot=%d size=%ld allocated addr=%p\n", slot,
+                  (long) malloc_slot[slot].size, malloc_slot[slot].freeptr);
+  }
+  free(malloc_slot[slot].baseptr);
+  malloc_slot[slot].in_use=0;
+
+  pthread_mutex_unlock(&malloc_mutex);
 }
 
 #endif

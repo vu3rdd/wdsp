@@ -8,6 +8,7 @@ extern "C" {
 #define OUTREAL   float
 #define dINREAL   float
 #define dOUTREAL  float
+#define DWORD     unsigned long
 
 // analyzer
 #define DETECTOR_MODE_PEAK         0
@@ -110,6 +111,7 @@ extern void SetTXAMode (int channel, int mode);
 extern void SetTXABandpassFreqs (int channel, double f_low, double f_high);
 extern void TXASetNC (int channel, int nc);
 extern void TXASetMP (int channel, int mp);
+extern void SetTXAFMAFFilter (int channel, double low, double high);
 
 //
 // Interfaces from amd.c
@@ -140,6 +142,7 @@ extern void SetTXAAMSQThreshold (int channel, double threshold);
 // Interfaces from analyzer.c
 //
 
+extern void ResetPixelBuffers(int disp);
 extern void SetAnalyzer (	int disp,
 					int n_pixout,
 					int n_fft,
@@ -177,6 +180,12 @@ extern void SnapSpectrum(	int disp,
 					int ss,
 					int LO,
 					double *snap_buff);
+extern void SnapSpectrumTimeout(   int disp,
+                            int ss,
+                            int LO,
+                            double* snap_buff,
+                            DWORD timeout,
+                            int* flag);
 extern void SetCalibration (	int disp,
 						int set_num,
 						int n_points,
@@ -417,6 +426,8 @@ extern void SetRXAEMNRaeRun (int channel, int run);
 extern void SetRXAEMNRPosition (int channel, int position);
 extern void SetRXAEMNRaeZetaThresh (int channel, double zetathresh);
 extern void SetRXAEMNRaePsi (int channel, double psi);
+extern void SetRXAEMNRtrainZetaThresh(int channel, double thresh);
+extern void SetRXAEMNRtrainT2(int channel, double t2);
 
 //
 // Interfaces from emph.c
@@ -425,6 +436,7 @@ extern void SetRXAEMNRaePsi (int channel, double psi);
 extern void SetTXAFMEmphPosition (int channel, int position);
 extern void SetTXAFMEmphMP (int channel, int mp);
 extern void SetTXAFMEmphNC (int channel, int nc);
+extern void SetTXAFMPreEmphFreqs (int channel, double low, double high);
 extern void SetTXAFMEmphPosition (int channel, int position);
 
 //
@@ -473,6 +485,7 @@ extern void SetRXAFMNCaud (int channel, int nc);
 extern void SetRXAFMMPaud (int channel, int mp);
 extern void SetRXAFMLimRun (int channel, int run);
 extern void SetRXAFMLimGain (int channel, double gaindB);
+extern void SetRXAFMAFFilter(int channel, double low, double high);
 
 //
 // Interfaces from fmmod.c
@@ -483,6 +496,7 @@ extern void SetTXACTCSSFreq (int channel, double freq);
 extern void SetTXACTCSSRun (int channel, int run);
 extern void SetTXAFMNC (int channel, int nc);
 extern void SetTXAFMMP (int channel, int mp);
+extern void SetTXAFMAFFreqs (int channel, double low, double high);
 
 //
 // Interfaces from fmsq.c
@@ -561,6 +575,7 @@ extern void SetRXAmpeakFilGain (int channel, int fil, double gain);
 extern void SetTXAPHROTRun (int channel, int run);
 extern void SetTXAPHROTCorner (int channel, double corner);
 extern void SetTXAPHROTNstages (int channel, int nstages);
+extern void SetTXAPHROTReverse (int channel, int reverse);
 
 //
 // Interfaces from iobuffs.c
@@ -809,6 +824,12 @@ extern void flush_siphonEXT (int id);
 extern void xsiphonEXT (int id, double* buff);
 extern void GetaSipF1EXT (int id, float* out, int size);
 extern void SetSiphonInsize (int id, int size);
+
+//
+// Interfaces from slew.c
+//
+
+extern void SetTXAuSlewTime (int channel, double time);
 
 //
 // Interfaces from snb.c

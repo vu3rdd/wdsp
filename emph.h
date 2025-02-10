@@ -2,7 +2,7 @@
 
 This file is part of a program that implements a Software-Defined Radio.
 
-Copyright (C) 2014, 2016 Warren Pratt, NR0V
+Copyright (C) 2014, 2016, 2023 Warren Pratt, NR0V
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -67,6 +67,8 @@ extern void setSize_emphp (EMPHP a, int size);
 __declspec (dllexport) void SetTXAFMEmphMP (int channel, int mp);
 
 __declspec (dllexport) void SetTXAFMEmphNC (int channel, int nc);
+
+__declspec (dllexport) void SetTXAFMPreEmphFreqs(int channel, double low, double high);
 
 #endif
 

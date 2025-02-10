@@ -2,7 +2,7 @@
 
 This file is part of a program that implements a Software-Defined Radio.
 
-Copyright (C) 2013 Warren Pratt, NR0V
+Copyright (C) 2013, 2023 Warren Pratt, NR0V
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -171,4 +171,22 @@ void setSize_uslew (USLEW a, int size)
 {
 	a->size = size;
 	flush_uslew (a);
+}
+
+/********************************************************************************************************
+*                                                                                                       *
+*                                            TXA Properties                                             *
+*                                                                                                       *
+********************************************************************************************************/
+
+PORT
+void SetTXAuSlewTime (int channel, double time)
+{
+    // NOTE:  'time' is in seconds
+    EnterCriticalSection (&ch[channel].csDSP);
+    USLEW a = txa[channel].uslew.p;
+    decalc_uslew (a);
+    a->tupslew = time;
+    calc_uslew (a);
+    LeaveCriticalSection (&ch[channel].csDSP);
 }

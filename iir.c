@@ -2,7 +2,7 @@
 
 This file is part of a program that implements a Software-Defined Radio.
 
-Copyright (C) 2014, 2022 Warren Pratt, NR0V
+Copyright (C) 2014, 2022, 2023 Warren Pratt, NR0V
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -570,6 +570,7 @@ void calc_phrot (PHROT a)
 PHROT create_phrot (int run, int size, double* in, double* out, int rate, double fc, int nstages)
 {
 	PHROT a = (PHROT) malloc0 (sizeof (phrot));
+    a->reverse = 0;
 	a->run = run;
 	a->size = size;
 	a->in = in;
@@ -608,6 +609,11 @@ void flush_phrot (PHROT a)
 void xphrot (PHROT a)
 {
 	EnterCriticalSection (&a->cs_update);
+    if (a->reverse)
+    {
+        for (int i = 0; i < a->size; i++)
+            a->in[2 * i + 0] = -a->in[2 * i + 0];
+    }
 	if (a->run)
 	{
 		int i, n;
@@ -685,6 +691,15 @@ void SetTXAPHROTNstages (int channel, int nstages)
 	decalc_phrot (a);
 	a->nstages = nstages;
 	calc_phrot (a);
+    LeaveCriticalSection (&a->cs_update);
+}
+
+PORT
+void SetTXAPHROTReverse (int channel, int reverse)
+{
+    PHROT a = txa[channel].phrot.p;
+    EnterCriticalSection(&a->cs_update);
+    a->reverse = reverse;
 	LeaveCriticalSection (&a->cs_update);
 }
 
