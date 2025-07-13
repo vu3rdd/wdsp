@@ -2,8 +2,16 @@
 # Makefile for WDSP library
 # This one creates libwdsp.a intended for statis linking
 #
+PROGRAM=libwdsp.so
 
-CFLAGS?= -pthread -O3 -D_GNU_SOURCE -Wno-parentheses
+PREFIX?=/usr/local
+LIBDIR=$(PREFIX)/lib
+INCLUDEDIR=$(PREFIX)/include
+
+CC?=gcc
+LINK?=$(CC)
+
+CFLAGS?= -pthread -fPIC -O3 -D_GNU_SOURCE -Wno-parentheses
 
 FFTWINCLUDE=`pkg-config --cflags fftw3`
 
@@ -222,16 +230,24 @@ OBJS+=rnnr.o\
 sbnr.o
 endif
 
-libwdsp.a:	$(OBJS)
-	ar rv libwdsp.a $(OBJS)
-	ranlib libwdsp.a
+all: $(PROGRAM) $(HEADERS) $(SOURCES)
+
+$(PROGRAM): $(OBJS)
+	$(LINK) -shared $(NOEXECSTACK) $(LDFLAGS) -o $(PROGRAM) $(OBJS) $(LIBS) $(NRLIBS)
 
 .c.o:
 	$(COMPILE) $(OPTIONS) $(CFLAGS) -c -o $@ $<
 
+install-dirs:
+	 mkdir -p $(LIBDIR) $(INCLUDEDIR)
+
+install: $(PROGRAM) install-dirs
+	cp wdsp.h $(INCLUDEDIR)
+	cp $(PROGRAM) $(LIBDIR)
+	ldconfig || :
 
 clean:
-	-rm -f libwdsp.a *.o
+	-rm -f libwdsp.so *.o
 
 #############################################################################
 #
