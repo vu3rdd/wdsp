@@ -3,7 +3,7 @@
 This file is part of a program that implements a Spectrum Analyzer
 used in conjunction with software-defined-radio hardware.
 
-Copyright (C) 2012, 2013, 2014, 2016, 2023 Warren Pratt, NR0V
+Copyright (C) 2012, 2013, 2014, 2016, 2023, 2025 Warren Pratt, NR0V
 Copyright (C) 2012 David McQuate, WA8YWQ - Kaiser window & Bessel function added.
 
 This program is free software; you can redistribute it and/or
@@ -147,6 +147,7 @@ void new_window(int disp, int type, int size, double PiAlpha)
 			break;
 		}
 	case 6:					// Blackman-Harris window (7-term)
+	default:
 		{
 			arg0 = 2.0 * PI / ((double)size - 1.0);
 			cgsum = 0.0;
@@ -667,6 +668,172 @@ DWORD WINAPI spectra (void *pargs)
 	return 1;
 }
 
+/********************************************************************************************************
+*																										*
+*							BEGIN CODE TO GET MAX FFT_BIN WITHIN A FREQ RANGE							*
+*																										*
+********************************************************************************************************/
+
+// Call in XCreateAnalyzer(...)
+// This gets initialized for each 'disp' that is set up.
+void Init_DetectMaxBin(int disp)
+{
+	DP a = pdisp[disp];
+	InitializeCriticalSectionAndSpinCount(&a->cs_dmb, 2500);
+	a->dmb_run = 0;
+	a->dmb_disp = disp;
+	a->dmb_ss = 0;
+	a->dmb_LO = 0;
+	a->dmb_rate = 48000.0;
+	a->dmb_fLow = 0.0;
+	a->dmb_fHigh = 0.0;
+	a->dmb_begin0 = 0;
+	a->dmb_end0 = -1;
+	a->dmb_begin1 = 0;
+	a->dmb_end1 = -1;
+	a->dmb_max_dB = -400.0;
+}
+
+// Call in DestroyAnalyzer(...)
+void Destroy_DetectMaxBin(int disp)
+{
+	DP a = pdisp[disp];
+	DeleteCriticalSection(&a->cs_dmb);
+}
+
+// Called from SetupDetectMaxBin(...) AND anytime 'size' changes, e.g., in SetAnalyzer(...)
+void calc_dmb(int disp, int size)
+{
+	DP a = pdisp[disp];
+	double bin_spacing, min_freq, max_freq;
+	bin_spacing = a->dmb_rate / size;
+	min_freq = -a->dmb_rate * (double)((size / 2 - 1)) / (double)size;
+	max_freq = -min_freq;
+	if (a->dmb_fLow < min_freq) a->dmb_fLow = min_freq;
+	if (a->dmb_fLow > max_freq) a->dmb_fLow = max_freq;
+	if (a->dmb_fHigh < min_freq) a->dmb_fHigh = min_freq;
+	if (a->dmb_fHigh > max_freq) a->dmb_fHigh = max_freq;
+
+	if (a->dmb_fLow < 0.0 && a->dmb_fHigh < 0.0)
+	{
+		a->dmb_begin0 = size - (int)ceil(-a->dmb_fLow / bin_spacing);
+		// Example:  1024, 48K, -2700 => 966
+		// Example:  1024, 48K, -23953.125==min_freq => 513
+		// NOTE:  since dmb_fLow < 0.0, begin0 will never be greater than a->size - 1
+		a->dmb_end0 = size - (int)ceil(-a->dmb_fHigh / bin_spacing);
+		// Example:  1024, 48K, -300  => 1017
+		a->dmb_begin1 = 0;
+		a->dmb_end1 = -1;
+	}
+	else if (a->dmb_fLow >= 0.0 && a->dmb_fHigh >= 0.0)
+	{
+		a->dmb_begin0 = (int)round(a->dmb_fLow / bin_spacing);
+		// Example:  1024, 48K, +300  => 6
+		a->dmb_end0 = (int)round(a->dmb_fHigh / bin_spacing);
+		// Example:  1024, 48K, +2700 => 58
+		// Example:  1024, 48K, 23953.125==max_freq => 511
+		a->dmb_begin1 = 0;
+		a->dmb_end1 = -1;
+	}
+	else	// fLow < 0.0 && fHigh >= 0.0
+	{
+		a->dmb_begin0 = size - (int)ceil(-a->dmb_fLow / bin_spacing);
+		a->dmb_end0 = size - 1;
+		a->dmb_begin1 = 0;
+		a->dmb_end1 = (int)round(a->dmb_fHigh / bin_spacing);
+	}
+	a->dmb_decay = exp(-1.0 / (a->dmb_tau * (double)a->dmb_frame_rate));
+	a->dmb_max_dB = -400.0;
+}
+
+
+// Call from console, for each 'disp' for which this function is desired.
+// Call for initial setup and anytime one of the parameters changes.
+// run:			Set to '1' if this is being used; cycles can be saved by setting to
+//				'0' if this is not currently in use.
+// disp:		Display identifier number.
+// ss:			Set to '0' for Thetis use.
+// LO:			Set to '0' for Thetis use.
+// rate:		Sample_rate of display data, e.g., '192000.0'.
+// fLow:		Lowest frequency of frequency range to evaluate, referenced to center_frequency
+//				to which DDC is tuned.  For example, for LSB, not using CTUN, this might be
+//				'-3000.0'.
+// fHigh:		Highest frequency of frequency range to evaluate, referenced to center_frequency
+//				to which DDC is tuned.  Example, LSB:  '-300.0'.
+// tau:			Metering time constant in seconds.  E.g., '0.5'.
+// frame_rate:	Display frame_rate currently in use.  E.g., '60'.
+PORT
+void SetupDetectMaxBin(int run, int disp, int ss, int LO, double rate, 
+	double fLow, double fHigh, double tau, int frame_rate)
+{
+	// We only allow setup for one (ss,LO) pair at a time for each 'disp'.
+	DP a = pdisp[disp];
+	
+	a->dmb_run = run;
+	a->dmb_disp = disp;
+	a->dmb_ss = ss;
+	a->dmb_LO = LO;
+	a->dmb_rate = rate;
+	a->dmb_fLow = fLow;
+	a->dmb_fHigh = fHigh;
+	a->dmb_tau = tau;
+	a->dmb_frame_rate = frame_rate;
+
+	calc_dmb(a->dmb_disp, a->size);
+}
+
+// Call this function in 'Cspectra(...)', after the FFT.
+void DetectMaxBin(int disp, int ss, int LO)
+{
+	DP a = pdisp[disp];
+	int i;
+	double mag, dmb_max;
+	double dmb_max_dB;
+	// If 'run' is set and the FFT Output is from the correct disp, ss, LO ...
+	if (a->dmb_run && disp == a->dmb_disp && ss == a->dmb_ss && LO == a->dmb_LO)
+	{
+		fftw_complex* fft_out = a->fft_out[ss][LO];
+		dmb_max = 1.0e-60;
+		EnterCriticalSection(&a->cs_dmb);
+		for (i = a->dmb_begin0; i <= a->dmb_end0; i++)
+		{
+			mag = fft_out[i][0] * fft_out[i][0] + fft_out[i][1] * fft_out[i][1];
+			if (mag > dmb_max) dmb_max = mag;
+		}
+		for (i = a->dmb_begin1; i <= a->dmb_end1; i++)
+		{
+			mag = fft_out[i][0] * fft_out[i][0] + fft_out[i][1] * fft_out[i][1];
+			if (mag > dmb_max) dmb_max = mag;
+		}
+
+		a->dmb_max_dB -= fabs((1.0 - a->dmb_decay) * a->dmb_max_dB);
+		dmb_max_dB = 10.0 * mlog10(a->scale * dmb_max);
+		if (dmb_max_dB > a->dmb_max_dB) a->dmb_max_dB = dmb_max_dB;
+		LeaveCriticalSection(&a->cs_dmb);
+		// for test only.
+		// printf("Max Bin = %.5e\n", a->dmb_max_dB);
+	}
+}
+
+// Call from console, for each 'disp' for which this function is desired.
+// Always returns the value from the most recent display frame.
+PORT
+double GetDetectMaxBin(int disp)
+{
+	DP a = pdisp[disp];
+	double dmb_max_dB;
+	EnterCriticalSection(&a->cs_dmb);
+	dmb_max_dB = a->dmb_max_dB;
+	LeaveCriticalSection(&a->cs_dmb);
+	return dmb_max_dB;
+}
+
+/********************************************************************************************************
+*																										*
+*							END CODE TO GET MAXIMUM FFT_BIN WITHIN A FREQ RANGE							*
+*																										*
+********************************************************************************************************/
+
 DWORD WINAPI Cspectra (void *pargs)
 {
 	int i, j;
@@ -698,7 +865,13 @@ DWORD WINAPI Cspectra (void *pargs)
 			return 0;
 		}
 		fftw_execute (a->Cplan[ss][LO]);
+
+		// Detect value of Max FFT Bin in a freq range
+		DetectMaxBin(disp, ss, LO);
+		// 
+
 	}
+
 	if (a->stop)
 	{
 		InterlockedDecrement(a->pnum_threads);
@@ -779,7 +952,7 @@ void interpolate(int disp, int set, double fmin, double fmax, int num_pixels)
 				kmax = min(n - 1, kmax + kdelta);
 				kdelta += kdelta;
 			}
-
+			k = (kmin + kmax) / 2;
 			while ((kmax - kmin) > 1)
 			{
 				k = (kmin + kmax) / 2;
@@ -795,6 +968,7 @@ void interpolate(int disp, int set, double fmin, double fmax, int num_pixels)
         mag = (((a->ac3[set][0])[k] * dx + (a->ac2[set][0])[k]) * dx + (a->ac1[set][0])[k]) * dx + (a->ac0[set][0])[k];
 		a->cd[i] = mag * mag;
 	}
+	return;
 }
 
 int build_interpolants(int disp, int set, int n, int m, double *x, double (*y)[dMAX_M])
@@ -811,7 +985,7 @@ int build_interpolants(int disp, int set, int n, int m, double *x, double (*y)[d
 	double v[dMAX_N][dMAX_M];
 	double tmp;
 	int i, j;
-
+	if (n < 3) return -1;
     for (i = 0; i < n - 1; i++)
     {
         dx[i] = x[i + 1] - x[i];
@@ -1049,6 +1223,11 @@ void SetAnalyzer (	int disp,			// display identifier
 				a->plan[i][j] = fftw_plan_dft_r2c_1d(sz, a->fft_in[i][j], a->fft_out[i][j], FFTW_PATIENT);
 				a->Cplan[i][j] = fftw_plan_dft_1d(sz, a->Cfft_in[i][j], a->fft_out[i][j], FFTW_FORWARD, FFTW_PATIENT);
 			}
+
+		// Setup DetectMaxBin for a 'size' change.
+		calc_dmb(disp, sz);
+		//
+
 	}
 
 	if ((sz != a->size) || (win_type != a->window_type) || (pi != a->PiAlpha))
@@ -1232,6 +1411,13 @@ void XCreateAnalyzer(	int disp,
 			a->I_samples[i][j] = (dINREAL*) malloc0 (sizeof(dINREAL) * a->bsize);
 			a->Q_samples[i][j] = (dINREAL*) malloc0 (sizeof(dINREAL) * a->bsize);
 		}
+
+	// Initialize DetectMaxBin functionality
+	Init_DetectMaxBin(disp);
+	// for test only.
+	// SetupDetectMaxBin(1, 0, 0, 0, 192000.0, -3000.0, -300.0, 0.5, 60);
+	//
+
 	*success = 0;
 }
 
@@ -1307,6 +1493,10 @@ void DestroyAnalyzer(int disp)
 			CloseHandle(a->hSnapEvent[i][j]);
 
 	_aligned_free ((void *) a->pnum_threads);
+
+	// Destroy DetectMaxBin functionality.
+	Destroy_DetectMaxBin(disp);
+	//
 
 	_aligned_free (a);
 }

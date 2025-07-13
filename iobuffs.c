@@ -420,7 +420,6 @@ void create_iobuffs (int channel)
         InterlockedBitTestAndReset(&a->flush_bypass, 0);
         a->Sem_Flush = CreateSemaphore(0, 0, 1, 0);
         _beginthread(flushChannel, 0, (void*)(uintptr_t)a->channel);
-
 }
 
 void destroy_iobuffs (int channel)

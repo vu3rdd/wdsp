@@ -142,6 +142,9 @@ extern void SetTXAAMSQThreshold (int channel, double threshold);
 // Interfaces from analyzer.c
 //
 
+extern void SetupDetectMaxBin(int run, int disp, int ss, int LO, double rate,
+	double fLow, double fHigh, double tau, int frame_rate);
+extern double GetDetectMaxBin(int disp);
 extern void ResetPixelBuffers(int disp);
 extern void SetAnalyzer (	int disp,
 					int n_pixout,
@@ -557,6 +560,18 @@ extern void SetTXAPostGenTTFreq (int channel, double freq1, double freq2);
 extern void SetTXAPostGenSweepMag (int channel, double mag);
 extern void SetTXAPostGenSweepFreq (int channel, double freq1, double freq2);
 extern void SetTXAPostGenSweepRate (int channel, double rate);
+extern void SetTXAPostGenPulseMag(int channel, double mag);
+extern void SetTXAPostGenPulseFreq(int channel, double freq);
+extern void SetTXAPostGenPulseDutyCycle(int channel, double dc);
+extern void SetTXAPostGenPulseToneFreq(int channel, double freq);
+extern void SetTXAPostGenPulseTransition(int channel, double transtime);
+extern void SetTXAPostGenPulseIQout(int channel, int IQout);
+extern void SetTXAPostGenTTPulseMag(int channel, double mag1, double mag2);
+extern void SetTXAPostGenTTPulseFreq(int channel, double freq);
+extern void SetTXAPostGenTTPulseDutyCycle(int channel, double dc);
+extern void SetTXAPostGenTTPulseToneFreq(int channel, double freq1, double freq2);
+extern void SetTXAPostGenTTPulseTransition(int channel, double transtime);
+extern void SetTXAPostGenTTPulseIQout(int channel, int IQout);
 
 //
 // Interfaces from iir.c
@@ -576,6 +591,16 @@ extern void SetTXAPHROTRun (int channel, int run);
 extern void SetTXAPHROTCorner (int channel, double corner);
 extern void SetTXAPHROTNstages (int channel, int nstages);
 extern void SetTXAPHROTReverse (int channel, int reverse);
+
+//
+// Interfaces from impulse_cache.c
+//
+
+extern int save_impulse_cache(const char* path);
+extern int read_impulse_cache(const char* path);
+extern void use_impulse_cache(int use);
+extern void init_impulse_cache(int use);
+extern void destroy_impulse_cache(void);
 
 //
 // Interfaces from iobuffs.c
@@ -818,6 +843,7 @@ extern void TXAGetaSipF (int channel, float* out, int size);
 extern void TXAGetaSipF1 (int channel, float* out, int size);
 extern void TXASetSipSpecmode (int channel, int mode);
 extern void TXAGetSpecF1 (int channel, float* out);
+extern void TXASetSipAllocDisps (int channel, int n_alloc_disps, int* alloc_run, int* alloc_disp);
 extern void create_siphonEXT (int id, int run, int insize, int sipsize, int fftsize, int specmode);
 extern void destroy_siphonEXT (int id);
 extern void flush_siphonEXT (int id);
@@ -867,6 +893,10 @@ extern  void *NewCriticalSection();
 extern  void DestroyCriticalSection (LPCRITICAL_SECTION cs_ptr);
 extern void analyze_bandpass_filter (int N, double f_low, double f_high, double samplerate, int wintype, int rtype, double scale);
 extern void print_buffer_parameters (const char* filename, int channel);
+extern int create_bfcu(int id, int min_size, int max_size, double rate, double corner, int points);
+extern void destroy_bfcu(int id);
+extern void getFilterCorners(int id, int* lower_index, int* upper_index);
+extern void getFilterCurve(int id, int size, int w_type, int index_low, int index_high, double* segment);
 
 //
 // Interfaces from varsamp.c
@@ -917,4 +947,4 @@ extern  void SetTXALevelerTop (int channel, double maxgain);
 //
 
 extern char* wisdom_get_status();
-extern void WDSPwisdom (char* directory);
+extern int WDSPwisdom (char* directory);

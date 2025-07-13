@@ -546,21 +546,24 @@ void __cdecl PSSaveCorrection (void *pargs)
 		if (!InterlockedAnd(&a->savecorr_bypass, 0xffffffff))
 		{
 			FILE* file = fopen(a->util.savefile, "w");
-			GetTXAiqcValues(a->util.channel, a->util.pm, a->util.pc, a->util.ps);
-			for (i = 0; i < a->util.ints; i++)
+			if (file)
 			{
-				for (k = 0; k < 4; k++)
-					fprintf(file, "%.17e\t", a->util.pm[4 * i + k]);
-				fprintf(file, "\n");
-				for (k = 0; k < 4; k++)
-					fprintf(file, "%.17e\t", a->util.pc[4 * i + k]);
-				fprintf(file, "\n");
-				for (k = 0; k < 4; k++)
-					fprintf(file, "%.17e\t", a->util.ps[4 * i + k]);
-				fprintf(file, "\n\n");
+				GetTXAiqcValues(a->util.channel, a->util.pm, a->util.pc, a->util.ps);
+				for (i = 0; i < a->util.ints; i++)
+				{
+					for (k = 0; k < 4; k++)
+						fprintf(file, "%.17e\t", a->util.pm[4 * i + k]);
+					fprintf(file, "\n");
+					for (k = 0; k < 4; k++)
+						fprintf(file, "%.17e\t", a->util.pc[4 * i + k]);
+					fprintf(file, "\n");
+					for (k = 0; k < 4; k++)
+						fprintf(file, "%.17e\t", a->util.ps[4 * i + k]);
+					fprintf(file, "\n\n");
+				}
+				fflush(file);
+				fclose(file);
 			}
-			fflush(file);
-			fclose(file);
 		}
 	}
 	InterlockedBitTestAndReset(&a->savecorr_bypass, 0);
@@ -576,21 +579,29 @@ void __cdecl PSRestoreCorrection(void *pargs)
 		if (!InterlockedAnd(&a->restcorr_bypass, 0xffffffff))
 		{
 			FILE* file = fopen(a->util.restfile, "r");
-			for (i = 0; i < a->util.ints; i++)
+			if (file)
 			{
-				for (k = 0; k < 4; k++)
-					fscanf(file, "%le", &(a->util.pm[4 * i + k]));
-				for (k = 0; k < 4; k++)
-					fscanf(file, "%le", &(a->util.pc[4 * i + k]));
-				for (k = 0; k < 4; k++)
-					fscanf(file, "%le", &(a->util.ps[4 * i + k]));
+				int error = 0;
+				for (i = 0; i < a->util.ints; i++)
+				{
+					// no additional reads after first error occurs
+					for (k = 0; k < 4; k++)
+						if (error == 0 && fscanf(file, "%le", &(a->util.pm[4 * i + k])) != 1) error = 1;
+					for (k = 0; k < 4; k++)
+						if (error == 0 && fscanf(file, "%le", &(a->util.pc[4 * i + k])) != 1) error = 1;
+					for (k = 0; k < 4; k++)
+						if (error == 0 && fscanf(file, "%le", &(a->util.ps[4 * i + k])) != 1) error = 1;
+				}
+				fclose(file);
+				if (!error)
+				{
+					if (!InterlockedBitTestAndSet(&a->ctrl.running, 0))
+						SetTXAiqcStart(a->channel, a->util.pm, a->util.pc, a->util.ps);
+					else
+						SetTXAiqcSwap(a->channel, a->util.pm, a->util.pc, a->util.ps);
+				}
 			}
-			fclose(file);
-			if (!InterlockedBitTestAndSet(&a->ctrl.running, 0))
-				SetTXAiqcStart(a->channel, a->util.pm, a->util.pc, a->util.ps);
-			else
-				SetTXAiqcSwap(a->channel, a->util.pm, a->util.pc, a->util.ps);
-		}
+}
 	}
 	InterlockedBitTestAndReset(&a->restcorr_bypass, 0);
 }
@@ -702,7 +713,7 @@ void pscc (int channel, int size, double* tx, double* rx)
 						{
 							int nmin = 0;
 							int nmax = a->ints;
-
+							n = (nmin + nmax) / 2;
 							while (nmax - nmin > 1)
 							{
 								n = (nmin + nmax) / 2;

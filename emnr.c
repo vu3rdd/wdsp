@@ -2,7 +2,7 @@
 
 This file is part of a program that implements a Software-Defined Radio.
 
-Copyright (C) 2015 Warren Pratt, NR0V
+Copyright (C) 2015, 2025 Warren Pratt, NR0V
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -26,7 +26,7 @@ warren@wpratt.com
 #define _CRT_SECURE_NO_WARNINGS
 #include "comm.h"
 #include "calculus.h"
-#include "zetahat.h"
+#include "zetaHat.h"
 
 /********************************************************************************************************
 *																										*
@@ -193,9 +193,9 @@ void interpM (double* res, double x, int nvals, double* xvals, double* yvals)
         *res = yvals[nvals - 1];
     else
     {
-        int idx = 0;
+	int idx = 1;
         double xllow, xlhigh, frac;
-        while (x >= xvals[idx])  idx++;
+	while (x > xvals[idx])  idx++;
         xllow = log10(xvals[idx - 1]);
         xlhigh = log10(xvals[idx]);
         frac = (log10 (x) - xllow) / (xlhigh - xllow);
@@ -209,33 +209,90 @@ int readZetaHat(const char* zeta_file, int* rows, int* cols,
         char zetaBinary[256];
         char bin[50] = ".bin";
         sprintf(zetaBinary, "%s%s", zeta_file, bin);
-        FILE* pzetaBinary = fopen(zetaBinary, "rb");
-        if (pzetaBinary == NULL) {
-          //
-          // If file zetaHat.bin does not exist, use compile-time
-          // data from zetaHat.c
-          //
-          *rows  = zetaHatDefaultRows;
-          *cols  = zetaHatDefaultCols;
-          *gmin  = zetaHatDefaultGmin;
-          *gmax  = zetaHatDefaultGmax;
-          *ximin = zetaHatDefaultXimin;
-          *ximax = zetaHatDefaultXimax;
-          memcpy(zetaHat,   zetaHatDefaultData,  zetaHatDefaultRows * zetaHatDefaultCols * sizeof(double));
-          memcpy(zetaValid, zetaHatDefaultValid, zetaHatDefaultRows * zetaHatDefaultCols * sizeof(int));
-          return 0;
+	FILE* pzetaBinary;
+	int e = 0;
+	if (pzetaBinary = fopen(zetaBinary, "rb"))
+	{
+		int nvals = 0;
+		// 'fread's executed only through first error
+		if (e == 0 && fread(rows,      sizeof(int),    1,     pzetaBinary) != 1) e = 1;
+		if (e == 0 && fread(cols,      sizeof(int),    1,     pzetaBinary) != 1) e = 1;
+		if (e == 0 && fread(gmin,      sizeof(double), 1,     pzetaBinary) != 1) e = 1;
+		if (e == 0 && fread(gmax,      sizeof(double), 1,     pzetaBinary) != 1) e = 1;
+		if (e == 0 && fread(ximin,     sizeof(double), 1,     pzetaBinary) != 1) e = 1;
+		if (e == 0 && fread(ximax,     sizeof(double), 1,     pzetaBinary) != 1) e = 1;
+		if (e == 0)   nvals = (*rows) * (*cols);
+		if (e == 0 && fread(zetaHat,   sizeof(double), nvals, pzetaBinary) != nvals) e = 1;
+		if (e == 0 && fread(zetaValid, sizeof(int),    nvals, pzetaBinary) != nvals) e = 1;
+		fclose(pzetaBinary);
         }
-        fread(rows, sizeof(int), 1, pzetaBinary);
-        fread(cols, sizeof(int), 1, pzetaBinary);
-        fread(gmin, sizeof(double), 1, pzetaBinary);
-        fread(gmax, sizeof(double), 1, pzetaBinary);
-        fread(ximin, sizeof(double), 1, pzetaBinary);
-        fread(ximax, sizeof(double), 1, pzetaBinary);
+	else 
+		e = 1;
+	if (e)
+	{
+		*rows  = CzetaRows;
+		*cols  = CzetaCols;
+		*gmin  = CzetaGmin;
+		*gmax  = CzetaGmax;
+		*ximin = CzetaXimin;
+		*ximax = CzetaXimax;
         int nvals = (*rows) * (*cols);
-        fread(zetaHat, sizeof(double), nvals, pzetaBinary);
-        fread(zetaValid, sizeof(int), nvals, pzetaBinary);
-        fclose(pzetaBinary);
+		memcpy (zetaHat,   CzetaHat,   nvals * sizeof (double));
+		memcpy (zetaValid, CzetaValid, nvals * sizeof (int));
+	}
         return 0;
+}
+
+void CwriteZetaHat(const char* cfile, int zetaHat_rows, int zetaHat_cols,
+	double zetaHat_gmin, double zetaHat_gmax, double zetaHat_ximin, double zetaHat_ximax, double* zetaHat, int* zetaValid)
+{
+	int n, i, j;
+	char cfilename[256];
+	char dot_c[50] = ".c";
+	sprintf(cfilename, "%s%s", cfile, dot_c);
+	FILE* pcfile;
+	if (pcfile = fopen(cfilename, "w"))
+	{
+		fprintf(pcfile, "int CzetaRows = %d;\n",        zetaHat_rows);
+		fprintf(pcfile, "int CzetaCols = %d;\n",        zetaHat_cols);
+		fprintf(pcfile, "double CzetaGmin = %lf;\n",    zetaHat_gmin);
+		fprintf(pcfile, "double CzetaGmax = %lf;\n",    zetaHat_gmax);
+		fprintf(pcfile, "double CzetaXimin = %lf;\n",   zetaHat_ximin);
+		fprintf(pcfile, "double CzetaXimax = %lf;\n\n", zetaHat_ximax);
+		n = zetaHat_rows * zetaHat_cols;
+		fprintf(pcfile, "double CzetaHat [%d] =\n", n);
+		fprintf(pcfile, "{\n");
+		i = 0;
+		j = 0;
+		while (i < n)
+		{
+			fprintf(pcfile, "%.17e,  ", zetaHat[i++]);
+			if (++j == 4)
+			{
+				fprintf(pcfile, "\n");
+				j = 0;
+			}
+		}
+		if (j != 0) fprintf(pcfile, "\n");
+		fprintf(pcfile, "};\n\n");
+		fprintf(pcfile, "int CzetaValid [%d] =\n", n);
+		fprintf(pcfile, "{\n");
+		i = 0;
+		j = 0;
+		while (i < n)
+		{
+			fprintf(pcfile, "%d,  ", zetaValid[i++]);
+			if (++j == 4)
+			{
+				fprintf(pcfile, "\n");
+				j = 0;
+			}
+		}
+		if (j != 0) fprintf(pcfile, "\n");
+		fprintf(pcfile, "};\n");
+		fflush(pcfile);
+		fclose(pcfile);
+	}
 }
 
 
@@ -332,6 +389,7 @@ void calc_emnr(EMNR a)
         a->g.zeta_thresh = -2.0;
         int rows, cols;
         readZetaHat("zetaHat", &rows, &cols, &a->g.z_gamma_min, &a->g.z_gamma_max, &a->g.z_xihat_min, &a->g.z_xihat_max, a->g.zeta_hat, a->g.zeta_true);
+	// CwriteZetaHat("zetaHat", rows, cols, a->g.z_gamma_min, a->g.z_gamma_max, a->g.z_xihat_min, a->g.z_xihat_max, a->g.zeta_hat, a->g.zeta_true);
         // np
 	a->np.incr = a->incr;
 	a->np.rate = a->rate;
@@ -968,7 +1026,7 @@ void calc_gain (EMNR a)
 	case 2: // gamma speech distribution (default)
 		{
 			double gamma, eps_hat, eps_p;
-			for (k = 0; k < a->msize; k++)
+			for (k = 0; k < a->g.msize; k++)
 			{
 				gamma = min(a->g.lambda_y[k] / a->g.lambda_d[k], a->g.gamma_max);
 				eps_hat = a->g.alpha * a->g.prev_mask[k] * a->g.prev_mask[k] * a->g.prev_gamma[k]
@@ -1010,13 +1068,15 @@ void calc_gain (EMNR a)
                     double v_ts = (xi_ts / (1.0 + xi_ts)) * gamma;
                     a->g.mask[k] = a->g.gf1p5 * sqrt(v_ts) / gamma * exp(-0.5 * v_ts)
                         * ((1.0 + v_ts) * bessI0(0.5 * v_ts) + v_ts * bessI1(0.5 * v_ts));
-                    double v2 = min(v, 700.0);
+		    double v2 = min(v_ts, 700.0);
                     double eta = a->g.mask[k] * a->g.mask[k] * a->g.lambda_y[k] / a->g.lambda_d[k];
                     double eps = eta / (1.0 - a->g.q);
                     double witchHat = (1.0 - a->g.q) / a->g.q * exp(v2) / (1.0 + eps);
                     a->g.mask[k] *= witchHat / (1.0 + witchHat);
                     xi_hat = xi_ts;
                 }
+		if (a->g.mask[k] > a->g.gmax) a->g.mask[k] = a->g.gmax;
+		if (a->g.mask[k] != a->g.mask[k]) a->g.mask[k] = 0.01;
 
                 if (getZeta(a, gamma, xi_hat, &zeta_hat) >= 0)
                 {
