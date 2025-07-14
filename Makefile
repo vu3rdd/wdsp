@@ -11,7 +11,7 @@ INCLUDEDIR=$(PREFIX)/include
 CC?=gcc
 LINK?=$(CC)
 
-CFLAGS?=-pthread -g -O3 -D_GNU_SOURCE -Wno-parentheses
+CFLAGS?=-pthread -O3 -D_GNU_SOURCE -Wno-parentheses
 
 FFTWINCLUDE=`pkg-config --cflags fftw3`
 FFTWLIB=`pkg-config --libs fftw3`
