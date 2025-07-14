@@ -25,7 +25,7 @@ NRLIBS+=`pkg-config --libs libspecbleach`
 CFLAGS+=-DNEW_NR_ALGORITHMS
 endif
 
-COMPILE=$(CC) $(FFTWINCLUDE) $(NRINCLUDES)
+COMPILE=$(CC) $(CFLAGS) $(FFTWINCLUDE) $(NRINCLUDES)
 
 SOURCES= amd.c\
 ammod.c\
@@ -160,8 +160,6 @@ ifneq ($(NEW_NR_ALGORITHMS),)
 HEADERS+= rnnr.h\
 sbnr.h
 endif
-
-JAVA_HEADERS= org_openhpsdr_dsp_Wdsp.h
 
 OBJS=linux_port.o\
 amd.o\
