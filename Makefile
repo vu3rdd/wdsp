@@ -263,5 +263,4 @@ endif
 
 clean:
 	-rm -f *.o
-	-rm -f $(INCLUDEDIR)/wdsp.h
 	-rm -f $(PROGRAM)
