@@ -264,3 +264,7 @@ endif
 clean:
 	-rm -f *.o
 	-rm -f $(PROGRAM)
+
+uninstall: clean
+	-rm -f $(INCLUDEDIR)/wdsp.h
+	-rm -f $(LIBDIR)/$(PROGRAM)
